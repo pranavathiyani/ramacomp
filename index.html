@@ -110,8 +110,8 @@
   .icon-btn:hover{background:var(--line);color:var(--ink)}
   .icon-btn.danger:hover{color:var(--c-outlier)}
 
-  .canvas-wrap{position:relative;padding:10px 12px 4px}
-  canvas.plot{width:100%;height:auto;display:block;touch-action:none}
+  .canvas-wrap{position:relative;padding:10px 12px 4px;max-width:560px;margin:0 auto;width:100%}
+  canvas.plot{width:100%;height:auto;display:block;touch-action:pan-y}
   .tooltip{
     position:absolute;pointer-events:none;background:var(--ink);color:#fff;border-radius:7px;
     padding:6px 9px;font-size:11.5px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.25);
@@ -152,6 +152,14 @@
     main{padding:16px 16px 60px}
     .controls{width:100%;margin-left:0}
     .legend .note{display:none}
+    header.app{position:static}
+  }
+  @media (pointer:coarse){
+    .icon-btn{padding:7px}
+    .selbox input{width:18px;height:18px}
+    .selbox input:checked::after{left:5px;top:2px}
+    .menu button{padding:11px 10px}
+    select,.btn{padding-top:9px;padding-bottom:9px}
   }
 
   /* comparison bar */
@@ -500,7 +508,7 @@ function backgroundCanvas(cls){
   bgCache[cls]=off;return off;
 }
 
-/* ---------- plot rendering ---------- */
+/* ---------- plot rendering (on-screen canvas) ---------- */
 const COLORS={general:"#2563EB",glycine:"#15803D",proline:"#C2410C",preproline:"#7C3AED"};
 const CHAIN_PAL=["#2563EB","#0F7C75","#C2410C","#7C3AED","#15803D","#DB2777","#CA8A04","#0EA5E9","#9333EA","#E11D48","#65A30D","#0D9488"];
 const M={l:46,r:14,t:14,b:40};
@@ -520,15 +528,9 @@ function drawPlot(canvas,struct,state,highlight){
   canvas.width=LOGW*dpr;canvas.height=LOGH*dpr;
   const ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,LOGW,LOGH);
-
-  // plot frame background
   ctx.fillStyle="#fff";ctx.fillRect(M.l,M.t,PW,PH);
-
-  // contours
   const bg=backgroundCanvas(state.ref);
   if(bg){ctx.imageSmoothingEnabled=true;ctx.drawImage(bg,M.l,M.t,PW,PH);}
-
-  // grid
   ctx.strokeStyle="#EDF1F2";ctx.lineWidth=1;
   ctx.fillStyle="#7C9296";ctx.font='500 10px "IBM Plex Mono"';
   ctx.textAlign="center";ctx.textBaseline="top";
@@ -541,21 +543,15 @@ function drawPlot(canvas,struct,state,highlight){
     const y=py(v);ctx.beginPath();ctx.moveTo(M.l,y);ctx.lineTo(M.l+PW,y);ctx.stroke();
     ctx.fillText(v,M.l-6,y);
   }
-  // origin cross
   ctx.strokeStyle="#CBD7D9";ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(px(0),M.t);ctx.lineTo(px(0),M.t+PH);
   ctx.moveTo(M.l,py(0));ctx.lineTo(M.l+PW,py(0));ctx.stroke();
-  // frame
   ctx.strokeStyle="#CBD7D9";ctx.lineWidth=1.2;ctx.strokeRect(M.l,M.t,PW,PH);
-
-  // axis labels
   ctx.fillStyle="#3C5A60";ctx.font='600 12px "IBM Plex Sans"';
   ctx.textAlign="center";ctx.textBaseline="bottom";
   ctx.fillText("φ  (degrees)",M.l+PW/2,M.t+PH+M.b);
   ctx.save();ctx.translate(13,M.t+PH/2);ctx.rotate(-Math.PI/2);
   ctx.textBaseline="top";ctx.fillText("ψ  (degrees)",0,0);ctx.restore();
-
-  // points
   const chainCol=struct.chainCol;
   const screen=[];
   const onlyOut=state.filter==="outliers";
@@ -572,7 +568,6 @@ function drawPlot(canvas,struct,state,highlight){
       ctx.beginPath();ctx.arc(x,y,size,0,7);ctx.fillStyle=base;ctx.globalAlpha=.9;ctx.fill();ctx.globalAlpha=1;
     }
   }
-  // highlighted residue
   if(highlight){
     const x=px(highlight.phi),y=py(highlight.psi);
     ctx.beginPath();ctx.arc(x,y,6.5,0,7);ctx.lineWidth=2;ctx.strokeStyle="#0E2A2F";ctx.stroke();
@@ -581,53 +576,266 @@ function drawPlot(canvas,struct,state,highlight){
   struct._screen=screen;
 }
 
+/* ---------- vector (SVG) export engine ---------- */
+const bgURLCache={};
+function backgroundDataURL(cls){
+  if(cls==="none") return null;
+  if(cls in bgURLCache) return bgURLCache[cls];
+  const c=backgroundCanvas(cls);
+  bgURLCache[cls]=c?c.toDataURL("image/png"):null;
+  return bgURLCache[cls];
+}
+const TITLE_H=30, CAP_H=26, GAP=16, PAD=18;
+const PANEL_H=TITLE_H+LOGH+CAP_H;
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const trunc=(s,n)=>{s=String(s);return s.length>n?s.slice(0,n-1)+"\u2026":s;};
+const pctOf=(v,t)=>t?(v/t*100).toFixed(1):"0.0";
+
+function svgPlotGroup(struct,st,ox,oy,bgURL){
+  const o=[];
+  const gx=v=>(px(v)+ox).toFixed(2), gy=v=>(py(v)+oy).toFixed(2);
+  o.push(`<rect x="${gx(-180)}" y="${gy(180)}" width="${PW}" height="${PH}" fill="#ffffff"/>`);
+  if(bgURL) o.push(`<image x="${gx(-180)}" y="${gy(180)}" width="${PW}" height="${PH}" preserveAspectRatio="none" href="${bgURL}"/>`);
+  for(let v=-180;v<=180;v+=60){
+    o.push(`<line x1="${gx(v)}" y1="${gy(180)}" x2="${gx(v)}" y2="${gy(-180)}" stroke="#EDF1F2" stroke-width="1"/>`);
+    o.push(`<line x1="${gx(-180)}" y1="${gy(v)}" x2="${gx(180)}" y2="${gy(v)}" stroke="#EDF1F2" stroke-width="1"/>`);
+  }
+  o.push(`<line x1="${gx(0)}" y1="${gy(180)}" x2="${gx(0)}" y2="${gy(-180)}" stroke="#CBD7D9" stroke-width="1"/>`);
+  o.push(`<line x1="${gx(-180)}" y1="${gy(0)}" x2="${gx(180)}" y2="${gy(0)}" stroke="#CBD7D9" stroke-width="1"/>`);
+  o.push(`<rect x="${gx(-180)}" y="${gy(180)}" width="${PW}" height="${PH}" fill="none" stroke="#CBD7D9" stroke-width="1.2"/>`);
+  for(let v=-180;v<=180;v+=60){
+    o.push(`<text x="${gx(v)}" y="${(py(-180)+oy+13).toFixed(1)}" font-size="10" font-family="'IBM Plex Mono',monospace" fill="#7C9296" text-anchor="middle">${v}</text>`);
+    o.push(`<text x="${(px(-180)+ox-6).toFixed(1)}" y="${(py(v)+oy+3.5).toFixed(1)}" font-size="10" font-family="'IBM Plex Mono',monospace" fill="#7C9296" text-anchor="end">${v}</text>`);
+  }
+  const cxAx=(px(0)+ox).toFixed(1), yAx=(oy+M.t+PH+M.b-4).toFixed(1);
+  o.push(`<text x="${cxAx}" y="${yAx}" font-size="12" font-weight="600" fill="#3C5A60" text-anchor="middle">\u03c6 (degrees)</text>`);
+  const yMid=(oy+M.t+PH/2).toFixed(1), xPsi=(ox+13).toFixed(1);
+  o.push(`<text x="${xPsi}" y="${yMid}" font-size="12" font-weight="600" fill="#3C5A60" text-anchor="middle" transform="rotate(-90 ${xPsi} ${yMid})">\u03c8 (degrees)</text>`);
+  const onlyOut=st.filter==="outliers";
+  for(const p of struct.pts){
+    if(onlyOut&&p.status!=="outlier") continue;
+    const x=(px(p.phi)+ox).toFixed(1), y=(py(p.psi)+oy).toFixed(1);
+    const base=st.color==="chain"?struct.chainCol[p.chain]:COLORS[p.cls];
+    if(p.status==="outlier"){
+      const fill=st.color==="chain"?base:"#DC2626";
+      o.push(`<circle cx="${x}" cy="${y}" r="2.8" fill="${fill}"/>`);
+      o.push(`<circle cx="${x}" cy="${y}" r="4.6" fill="none" stroke="#DC2626" stroke-width="1.1"/>`);
+    } else {
+      o.push(`<circle cx="${x}" cy="${y}" r="2.4" fill="${base}" fill-opacity="0.9"/>`);
+    }
+  }
+  return o.join("");
+}
+
+function svgPanel(struct,st,ox,oy,bgURL){
+  const o=[];
+  o.push(`<text x="${(ox+LOGW/2).toFixed(1)}" y="${(oy+19).toFixed(1)}" font-size="14" font-weight="600" fill="#0E2A2F" text-anchor="middle">${esc(trunc(struct.name,40))}</text>`);
+  o.push(svgPlotGroup(struct,st,ox,oy+TITLE_H,bgURL));
+  const t=struct.pts.length;
+  const fav=struct.pts.filter(p=>p.status==="favored").length;
+  const al=struct.pts.filter(p=>p.status==="allowed").length;
+  const ou=struct.pts.filter(p=>p.status==="outlier").length;
+  const cap=`Favoured ${pctOf(fav,t)}%   \u00b7   Allowed ${pctOf(al,t)}%   \u00b7   Outliers ${ou}   \u00b7   n = ${t}`;
+  o.push(`<text x="${(ox+LOGW/2).toFixed(1)}" y="${(oy+TITLE_H+LOGH+17).toFixed(1)}" font-size="11.5" font-family="'IBM Plex Mono',monospace" fill="#3C5A60" text-anchor="middle">${esc(cap)}</text>`);
+  return o.join("");
+}
+
+function svgLegend(st,x,y){
+  const items=[];
+  if(st.color==="class") items.push(["dot","#2563EB","General"],["dot","#15803D","Glycine"],["dot","#C2410C","Proline"],["dot","#7C3AED","Pre-proline"]);
+  else items.push(["txt",null,"Points coloured by chain"]);
+  items.push(["ring","#DC2626","Outlier"],["sw","rgba(15,124,117,0.30)","Favoured"],["sw","rgba(15,124,117,0.11)","Allowed"]);
+  const o=[`<g font-size="11.5" fill="#3C5A60">`]; let cx=x;
+  for(const [type,color,label] of items){
+    if(type==="dot"){ o.push(`<circle cx="${cx+5}" cy="${y}" r="5" fill="${color}"/>`); cx+=15; }
+    else if(type==="ring"){ o.push(`<circle cx="${cx+5}" cy="${y}" r="3.4" fill="#DC2626"/><circle cx="${cx+5}" cy="${y}" r="5.4" fill="none" stroke="#DC2626" stroke-width="1.1"/>`); cx+=15; }
+    else if(type==="sw"){ o.push(`<rect x="${cx}" y="${y-5}" width="13" height="10" rx="2" fill="${color}" stroke="rgba(0,0,0,0.06)"/>`); cx+=17; }
+    o.push(`<text x="${cx+3}" y="${y+4}">${esc(label)}</text>`);
+    cx += label.length*6.3 + 14;
+  }
+  o.push(`</g>`);
+  return o.join("");
+}
+
+function buildSVGDocument(list,st,opts){
+  opts=opts||{};
+  const n=list.length;
+  let cols=opts.cols || (st.cols==="auto"?Math.min(n,3):Math.min(n,Number(st.cols)||1));
+  cols=Math.max(1,Math.min(cols,n));
+  const rows=Math.ceil(n/cols);
+  const titleH=opts.title?42:0;
+  const legendH=opts.legend?34:0;
+  const W=PAD*2 + cols*LOGW + (cols-1)*GAP;
+  const H=PAD*2 + titleH + rows*PANEL_H + (rows-1)*GAP + legendH;
+  const bgURL=backgroundDataURL(st.ref);
+  const o=[];
+  o.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'IBM Plex Sans','Segoe UI',system-ui,sans-serif">`);
+  o.push(`<rect width="${W}" height="${H}" fill="#ffffff"/>`);
+  if(opts.title) o.push(`<text x="${W/2}" y="${PAD+24}" font-size="17" font-weight="700" fill="#0E2A2F" text-anchor="middle">${esc(opts.title)}</text>`);
+  list.forEach((s,i)=>{
+    const r=Math.floor(i/cols), c=i%cols;
+    o.push(svgPanel(s,st, PAD+c*(LOGW+GAP), PAD+titleH+r*(PANEL_H+GAP), bgURL));
+  });
+  if(opts.legend) o.push(svgLegend(st, PAD, H-PAD-14));
+  o.push(`</svg>`);
+  return {svg:o.join(""), width:W, height:H};
+}
+
+/* ---------- raster + PDF export ---------- */
+function download(blob,filename){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function svgToImage(svg){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml;charset=utf-8"}));
+    const img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);res(img);};
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("SVG could not be rendered"));};
+    img.src=url;
+  });
+}
+async function svgToCanvas(doc,scale,whiteBg){
+  const img=await svgToImage(doc.svg);
+  const c=document.createElement("canvas");
+  c.width=Math.round(doc.width*scale);c.height=Math.round(doc.height*scale);
+  const ctx=c.getContext("2d");
+  if(whiteBg){ctx.fillStyle="#ffffff";ctx.fillRect(0,0,c.width,c.height);}
+  ctx.setTransform(scale,0,0,scale,0,0);
+  ctx.drawImage(img,0,0,doc.width,doc.height);
+  return c;
+}
+function canvasBlob(c,type,q){return new Promise(r=>c.toBlob(r,type,q));}
+
+async function exportFigure(list,format,opts){
+  list=list.filter(s=>s.pts&&s.pts.length);
+  if(!list.length){toast("No plots to export",true);return;}
+  opts=opts||{};
+  const base=opts.basename||"ramacomp";
+  try{
+    const doc=buildSVGDocument(list,state,opts);
+    if(format==="svg"){
+      download(new Blob([doc.svg],{type:"image/svg+xml;charset=utf-8"}), base+".svg");
+    } else if(format==="png"){
+      const c=await svgToCanvas(doc,3,false);
+      download(await canvasBlob(c,"image/png"), base+".png");
+    } else if(format==="jpeg"){
+      const c=await svgToCanvas(doc,3,true);
+      download(await canvasBlob(c,"image/jpeg",0.95), base+".jpg");
+    } else if(format==="pdf"){
+      if(!(window.jspdf&&window.jspdf.jsPDF)){toast("PDF library didn't load \u2014 check your connection and retry",true);return;}
+      const c=await svgToCanvas(doc,3,true);
+      const data=c.toDataURL("image/png");
+      const pw=doc.width*0.75, ph=doc.height*0.75;
+      const pdf=new window.jspdf.jsPDF({orientation:pw>ph?"landscape":"portrait",unit:"pt",format:[pw,ph]});
+      pdf.addImage(data,"PNG",0,0,pw,ph);
+      pdf.save(base+".pdf");
+    }
+    toast("Exported "+base+"."+(format==="jpeg"?"jpg":format));
+  }catch(err){ toast("Export failed: "+(err.message||err),true); }
+}
+
+/* ---------- toast + menu ---------- */
+let toastEl=null,toastT=null;
+function toast(msg,isErr){
+  if(!toastEl){toastEl=document.createElement("div");document.body.appendChild(toastEl);}
+  toastEl.textContent=msg;toastEl.className="toast show"+(isErr?" err":"");
+  clearTimeout(toastT);toastT=setTimeout(()=>{toastEl.className="toast"+(isErr?" err":"");},2600);
+}
+let openMenuEl=null;
+function closeMenu(){ if(openMenuEl){openMenuEl.remove();openMenuEl=null;document.removeEventListener("pointerdown",onDocDown,true);} }
+function onDocDown(e){ if(openMenuEl&&!openMenuEl.contains(e.target)) closeMenu(); }
+function openExportMenu(anchor,onPick){
+  closeMenu();
+  const menu=document.createElement("div");menu.className="menu";
+  menu.innerHTML=`<div class="mhead">Export as</div>`+
+    [["png","PNG"],["jpeg","JPEG"],["svg","SVG"],["pdf","PDF"]].map(([v,l])=>
+      `<button data-fmt="${v}">${l}<span class="ext">.${v==="jpeg"?"jpg":v}</span></button>`).join("");
+  document.body.appendChild(menu);
+  const r=anchor.getBoundingClientRect();
+  const mw=140;
+  let left=r.left+window.scrollX, top=r.bottom+window.scrollY+6;
+  if(left+mw>window.scrollX+document.documentElement.clientWidth-8) left=Math.max(8,r.right+window.scrollX-mw);
+  menu.style.left=left+"px";menu.style.top=top+"px";
+  menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{const f=b.dataset.fmt;closeMenu();onPick(f);});
+  openMenuEl=menu;
+  setTimeout(()=>document.addEventListener("pointerdown",onDocDown,true),0);
+}
+
 /* ---------- app state + UI ---------- */
 const state={ref:"general",color:"class",filter:"all",cols:"2"};
 const structs=[];
+const selected=new Set();
 let uid=0;
 
 const grid=document.getElementById("grid");
 const legend=document.getElementById("legend");
 const dropzone=document.getElementById("dropzone");
 const fileInput=document.getElementById("fileInput");
+const comparebar=document.getElementById("comparebar");
+const cbLabel=document.getElementById("cbLabel");
 
 function applyCols(){
-  let n=state.cols;
-  if(n==="auto"){
-    grid.style.gridTemplateColumns="repeat(auto-fill,minmax(330px,1fr))";
-  } else {
-    grid.style.gridTemplateColumns="repeat("+n+",minmax(0,1fr))";
-  }
+  if(state.cols==="auto"){ grid.style.gridTemplateColumns="repeat(auto-fill,minmax(min(100%,330px),1fr))"; return; }
+  const want=Number(state.cols)||1;
+  const w=grid.clientWidth||document.documentElement.clientWidth||360;
+  const fit=Math.max(1,Math.floor(w/330));   // keep each plot >= ~330px so axes stay legible
+  const eff=Math.max(1,Math.min(want,fit));
+  grid.style.gridTemplateColumns="repeat("+eff+",minmax(0,1fr))";
 }
-function fmt(v){return (v>=0?"+":"")+v.toFixed(1);}
+const fmt=v=>(v>=0?"+":"")+v.toFixed(1);
+const safeName=n=>(String(n).replace(/\.[^.]+$/,"").replace(/[^\w.-]+/g,"_")||"plot");
+
+function dataStructs(){return structs.filter(s=>s.pts&&s.pts.length);}
+function compareList(){
+  const data=dataStructs();
+  const sel=data.filter(s=>selected.has(s.id));
+  return sel.length?sel:data;
+}
+function layoutColsFor(n){return state.cols==="auto"?Math.min(n,3):Math.min(n,Number(state.cols)||1);}
+function updateCompareBar(){
+  const data=dataStructs();
+  comparebar.hidden=data.length<1;
+  const selCount=data.filter(s=>selected.has(s.id)).length;
+  cbLabel.textContent = selCount
+    ? `Comparison figure — ${selCount} selected`
+    : `Comparison figure — all ${data.length} plot${data.length!==1?"s":""}`;
+}
 
 function buildCard(struct){
   const card=document.createElement("div");card.className="card";card.dataset.id=struct.id;
-
   const head=document.createElement("div");head.className="card-head";
-  if(struct.error||struct.pts){
-    const chains=struct.pts?[...new Set(struct.pts.map(p=>p.chain))]:[];
-    head.innerHTML=`<span class="name" title="${struct.name}">${struct.name}</span>`+
-      (struct.pts?`<span class="meta">${struct.pts.length} res · ${chains.length} chain${chains.length!==1?"s":""}</span>`:"")+
-      `<span class="spacer"></span>`;
+  const chains=struct.pts?[...new Set(struct.pts.map(p=>p.chain))]:[];
+  head.innerHTML=`<span class="name" title="${esc(struct.name)}">${esc(struct.name)}</span>`+
+    (struct.pts?`<span class="meta">${struct.pts.length} res \u00b7 ${chains.length} chain${chains.length!==1?"s":""}</span>`:"")+
+    `<span class="spacer"></span>`;
+
+  const hasData=struct.pts&&struct.pts.length;
+  if(hasData){
+    const sel=document.createElement("label");sel.className="selbox";sel.title="Include in comparison figure";
+    const cbx=document.createElement("input");cbx.type="checkbox";cbx.checked=selected.has(struct.id);
+    cbx.onchange=()=>{cbx.checked?selected.add(struct.id):selected.delete(struct.id);updateCompareBar();};
+    sel.appendChild(cbx);sel.appendChild(document.createTextNode("compare"));
+    head.appendChild(sel);
+
+    const exp=document.createElement("button");exp.className="icon-btn";exp.title="Export this plot";
+    exp.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    exp.onclick=()=>openExportMenu(exp,f=>exportFigure([struct],f,{cols:1,legend:true,basename:"ramacomp_"+safeName(struct.name)}));
+    head.appendChild(exp);
   }
-  const dl=document.createElement("button");dl.className="icon-btn";dl.title="Download PNG";
-  dl.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const rm=document.createElement("button");rm.className="icon-btn danger";rm.title="Remove";
   rm.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-  head.appendChild(dl);head.appendChild(rm);
+  rm.onclick=()=>{const i=structs.findIndex(s=>s.id===struct.id);if(i>=0)structs.splice(i,1);selected.delete(struct.id);render();};
+  head.appendChild(rm);
   card.appendChild(head);
 
-  rm.onclick=()=>{const i=structs.findIndex(s=>s.id===struct.id);if(i>=0)structs.splice(i,1);render();};
-
   if(struct.error){
-    const e=document.createElement("div");e.className="card-error";e.textContent=struct.error;card.appendChild(e);
-    dl.style.display="none";return card;
+    const e=document.createElement("div");e.className="card-error";e.textContent=struct.error;card.appendChild(e);return card;
   }
-  if(struct.pts.length===0){
+  if(!hasData){
     const e=document.createElement("div");e.className="card-empty";
-    e.textContent="No residues with both φ and ψ found (no protein backbone, or only single residues).";
-    card.appendChild(e);dl.style.display="none";return card;
+    e.textContent="No residues with both \u03c6 and \u03c8 found (no protein backbone, or only isolated residues).";
+    card.appendChild(e);return card;
   }
 
   const wrap=document.createElement("div");wrap.className="canvas-wrap";
@@ -635,21 +843,19 @@ function buildCard(struct){
   const tip=document.createElement("div");tip.className="tooltip";
   wrap.appendChild(canvas);wrap.appendChild(tip);card.appendChild(wrap);
 
-  // stats
   const total=struct.pts.length;
   const fav=struct.pts.filter(p=>p.status==="favored").length;
   const allow=struct.pts.filter(p=>p.status==="allowed").length;
   const out=struct.pts.filter(p=>p.status==="outlier").length;
-  const pct=v=>(v/total*100).toFixed(1);
+  const pc=v=>(v/total*100).toFixed(1);
   const stats=document.createElement("div");stats.className="stats";
   stats.innerHTML=
-    `<div class="stat fav"><span class="v">${pct(fav)}%</span><span class="l">Favoured</span></div>`+
-    `<div class="stat"><span class="v">${pct(allow)}%</span><span class="l">Allowed</span></div>`+
+    `<div class="stat fav"><span class="v">${pc(fav)}%</span><span class="l">Favoured</span></div>`+
+    `<div class="stat"><span class="v">${pc(allow)}%</span><span class="l">Allowed</span></div>`+
     `<div class="stat out"><span class="v">${out}</span><span class="l">Outliers</span></div>`+
     `<div class="stat"><span class="v">${total}</span><span class="l">Residues</span></div>`;
   card.appendChild(stats);
 
-  // outliers list
   let highlight=null;
   const redraw=()=>drawPlot(canvas,struct,state,highlight);
   if(out>0){
@@ -660,29 +866,25 @@ function buildCard(struct){
     const list=document.createElement("div");list.className="ol-list";
     for(const p of struct.pts.filter(p=>p.status==="outlier")){
       const row=document.createElement("div");row.className="ol-row";
-      row.innerHTML=`<span class="who">${p.chain}&middot;${p.resName} ${p.seq}${p.icode}</span>`+
-        `<span class="ang">φ ${fmt(p.phi)}</span><span class="ang">ψ ${fmt(p.psi)}</span>`;
+      row.innerHTML=`<span class="who">${esc(p.chain)}\u00b7${esc(p.resName)} ${esc(p.seq)}${esc(p.icode)}</span>`+
+        `<span class="ang">\u03c6 ${fmt(p.phi)}</span><span class="ang">\u03c8 ${fmt(p.psi)}</span>`;
       row.onclick=()=>{highlight=(highlight===p)?null:p;redraw();};
       list.appendChild(row);
     }
     det.appendChild(list);card.appendChild(det);
   }
 
-  // hover
   canvas.addEventListener("pointermove",ev=>{
     const rect=canvas.getBoundingClientRect();
     const sx=LOGW/rect.width, sy=LOGH/rect.height;
     const mx=(ev.clientX-rect.left)*sx, my=(ev.clientY-rect.top)*sy;
     let best=null,bd=64;
-    for(const s of (struct._screen||[])){
-      const d=(s.x-mx)**2+(s.y-my)**2;
-      if(d<bd){bd=d;best=s;}
-    }
+    for(const s of (struct._screen||[])){const d=(s.x-mx)**2+(s.y-my)**2;if(d<bd){bd=d;best=s;}}
     if(best){
       const p=best.p;
-      tip.innerHTML=`<b>${p.chain}&middot;${p.resName} ${p.seq}${p.icode}</b><br>`+
-        `<span class="k">φ</span> ${fmt(p.phi)}&deg; &nbsp; <span class="k">ψ</span> ${fmt(p.psi)}&deg;<br>`+
-        `<span class="k">${p.cls}</span> · ${p.status}`;
+      tip.innerHTML=`<b>${esc(p.chain)}\u00b7${esc(p.resName)} ${esc(p.seq)}${esc(p.icode)}</b><br>`+
+        `<span class="k">\u03c6</span> ${fmt(p.phi)}\u00b0 &nbsp; <span class="k">\u03c8</span> ${fmt(p.psi)}\u00b0<br>`+
+        `<span class="k">${p.cls}</span> \u00b7 ${p.status}`;
       let tx=best.x/sx+12, ty=best.y/sy-10;
       if(tx>rect.width-150) tx=best.x/sx-12-tip.offsetWidth;
       tip.style.left=tx+"px";tip.style.top=ty+"px";tip.classList.add("show");
@@ -690,29 +892,20 @@ function buildCard(struct){
   });
   canvas.addEventListener("pointerleave",()=>tip.classList.remove("show"));
 
-  dl.onclick=()=>{
-    canvas.toBlob(b=>{
-      const a=document.createElement("a");a.href=URL.createObjectURL(b);
-      a.download=struct.name.replace(/\.[^.]+$/,"")+"_ramachandran.png";a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    });
-  };
-
   struct._redraw=redraw;
   requestAnimationFrame(redraw);
   return card;
 }
 
 function render(){
+  closeMenu();
   grid.innerHTML="";
   applyCols();
   legend.hidden=structs.length===0;
-  dropzone.style.display=structs.length===0?"block":"block";
   for(const s of structs) grid.appendChild(buildCard(s));
+  updateCompareBar();
 }
-function redrawAll(){
-  for(const s of structs) if(s._redraw) s._redraw();
-}
+function redrawAll(){ for(const s of structs) if(s._redraw) s._redraw(); }
 
 /* ---------- file handling ---------- */
 function detectFormat(name,text){
@@ -725,13 +918,10 @@ function detectFormat(name,text){
 function ingest(name,text){
   const s={id:++uid,name};
   try{
-    const fmt=detectFormat(name,text);
-    const chains=fmt==="cif"?parseCIF(text):parsePDB(text);
+    const chains=detectFormat(name,text)==="cif"?parseCIF(text):parsePDB(text);
     s.pts=computeAngles(chains);
     s.chainCol=chainColors(s.pts);
-  }catch(err){
-    s.error="Could not parse this file — "+(err.message||"unexpected format")+".";
-  }
+  }catch(err){ s.error="Could not parse this file \u2014 "+(err.message||"unexpected format")+"."; }
   structs.push(s);
 }
 function loadFiles(fileList){
@@ -750,14 +940,19 @@ document.getElementById("addBtn").onclick=()=>fileInput.click();
 dropzone.onclick=()=>fileInput.click();
 fileInput.onchange=()=>{loadFiles(fileInput.files);fileInput.value="";};
 ["dragenter","dragover"].forEach(e=>dropzone.addEventListener(e,ev=>{ev.preventDefault();dropzone.classList.add("drag");}));
-["dragleave","drop"].forEach(e=>dropzone.addEventListener(e,ev=>{ev.preventDefault();if(e!=="dragleave"||ev.target===dropzone)dropzone.classList.remove("drag");}));
+dropzone.addEventListener("dragleave",ev=>{if(ev.target===dropzone)dropzone.classList.remove("drag");});
 dropzone.addEventListener("drop",ev=>{ev.preventDefault();dropzone.classList.remove("drag");if(ev.dataTransfer.files.length)loadFiles(ev.dataTransfer.files);});
 window.addEventListener("dragover",e=>e.preventDefault());
 window.addEventListener("drop",e=>{if(e.target!==dropzone&&!dropzone.contains(e.target)){e.preventDefault();if(e.dataTransfer.files.length)loadFiles(e.dataTransfer.files);}});
 
-document.getElementById("clearBtn").onclick=()=>{structs.length=0;render();};
+document.getElementById("clearBtn").onclick=()=>{structs.length=0;selected.clear();render();};
 document.getElementById("colsSel").onchange=e=>{state.cols=e.target.value;applyCols();};
 document.getElementById("refSel").onchange=e=>{state.ref=e.target.value;redrawAll();};
+document.getElementById("cbExport").onclick=function(){
+  const list=compareList();
+  if(!list.length){toast("Add structures first",true);return;}
+  openExportMenu(this,f=>exportFigure(list,f,{cols:layoutColsFor(list.length),legend:true,title:"RamaComp \u2014 \u03c6/\u03c8 comparison",basename:"ramacomp_comparison"}));
+};
 function seg(id,key,after){
   const el=document.getElementById(id);
   el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
@@ -767,8 +962,9 @@ function seg(id,key,after){
 }
 seg("colorSeg","color",redrawAll);
 seg("filterSeg","filter",redrawAll);
-
 applyCols();
+let resizeRAF=null;
+window.addEventListener("resize",()=>{ if(resizeRAF)cancelAnimationFrame(resizeRAF); resizeRAF=requestAnimationFrame(applyCols); });
 </script>
 </body>
 </html>
