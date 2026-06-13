@@ -2,6 +2,8 @@
 
 Compare backbone **φ/ψ (Ramachandran) plots** across two or more protein structures, side by side, in the browser. Drop in PDB or mmCIF files, read the maps together, and export publication-ready figures. Nothing is uploaded — all parsing and geometry runs locally on your machine.
 
+**▶ Live: [pranavathiyani.github.io/ramacomp](https://pranavathiyani.github.io/ramacomp/)** — no install, nothing to set up.
+
 *Co-developed by Pranavathiyani Gnanasekar & Claude.*
 
 ---
@@ -21,7 +23,7 @@ Most Ramachandran tools (MolProbity, RAMPAGE, RamPlot, the viewers in PyMOL/Chim
 
 ## How to use
 
-1. Open the page (hosted, or `index.html` locally).
+1. Open **[pranavathiyani.github.io/ramacomp](https://pranavathiyani.github.io/ramacomp/)** (or `index.html` locally).
 2. Drag structure files onto the drop zone, or click **Add files**. Accepts `.pdb`, `.ent`, `.cif`, `.mmcif`.
 3. Set **Columns** for the side-by-side layout, pick the **reference contour** set, and choose how points are coloured.
 4. To export one plot, use the download icon on its card and pick a format.
@@ -50,18 +52,16 @@ The favoured/allowed regions are a smooth analytical model (a Gaussian mixture p
 - The ω (peptide) angle is not computed, so cis-peptides are not flagged.
 - One altloc per atom (highest occupancy); first model only for multi-model files.
 
-## Host it on GitHub Pages
+## Run your own copy
+
+The canonical instance is already live at [pranavathiyani.github.io/ramacomp](https://pranavathiyani.github.io/ramacomp/). To host your own (e.g. a fork):
 
 1. Create a public repository named `ramacomp`.
-2. Add this file to the repository root, renamed to **`index.html`**, along with `README.md`.
+2. Add `index.html` to the repository root, along with `README.md`.
 3. In the repo, go to **Settings → Pages**, set **Source** to *Deploy from a branch*, branch `main`, folder `/ (root)`, and save.
-4. After a minute it goes live at:
+4. After a minute it goes live at `https://<your-username>.github.io/ramacomp/`.
 
-   ```
-   https://<username>.github.io/ramacomp/
-   ```
-
-To run it locally instead, just open `index.html` in any modern browser — no build step or server needed.
+To run it without hosting, just open `index.html` in any modern browser — no build step or server needed.
 
 ### A note on dependencies
 
