@@ -17,7 +17,7 @@ Most Ramachandran tools (MolProbity, RAMPAGE, RamPlot, the viewers in PyMOL/Chim
 - **Two ways in.** Drop/open local `.pdb` / `.mmcif` files, or **fetch by ID** — a PDB code pulls from RCSB, a UniProt/AlphaFold accession pulls the model from the AlphaFold DB.
 - **Multiple structures at once.** Each gets its own plot; choose how many sit side by side (1–5, or auto, and it never crowds them below readable width on small screens).
 - **PDB and mmCIF.** Author numbering preferred, with fallback to label fields. First model only; highest-occupancy altloc kept.
-- **Reference contours** for the four standard residue classes (general, glycine, proline, pre-proline), each residue scored against its own class. Thresholds are calibrated to MolProbity-like coverage (~98% favoured for a canonical structure).
+- **Reference contours** for the six MolProbity residue categories (general, glycine, Ile/Val, pre-Pro, trans-Pro, cis-Pro), each residue scored against its own category. With the Top8000 reference data baked in (see [Reference data](#reference-data)), the contours and favoured/allowed/outlier calls are the actual MolProbity reference distributions (favoured = 98% contour, allowed = 99.95% contour). Without the data file, RamaComp falls back to a built-in analytical approximation (four categories, indicative percentages only).
 - **Colour points** by residue type, by chain, or by **B-factor / pLDDT** (a low→high ramp over the B-factor column — temperature factor for crystal structures, confidence for AlphaFold models).
 - **Interactive.** Hover for chain, residue, φ, ψ, class, region, and B-factor/pLDDT. Per-structure favoured/allowed/outlier counts and a clickable outlier list.
 - **Export** a single plot or a combined side-by-side comparison as **PNG, JPEG, SVG, or PDF**, or the underlying angles as **CSV**. SVG keeps axes, points, and labels as true vectors (the contour field rides along as a raster layer).
@@ -47,16 +47,28 @@ For each residue with an intact peptide bond on both sides:
 
 Dihedrals use the Praxeolitic formula (IUPAC sign convention). A residue is only plotted when the C(i−1)–N(i) and C(i)–N(i+1) peptide bonds are both shorter than 2.0 Å, so terminal residues and chain breaks are skipped rather than producing spurious angles.
 
-Residue classes follow MolProbity precedence: **Gly → Pro → pre-Pro → general**. Each point is scored against its own class as favoured, allowed, or outlier.
+Residues are sorted into the six MolProbity categories — **cis-Pro, trans-Pro, Gly, pre-Pro, Ile/Val, general** (in that precedence). cis vs trans proline is decided by the peptide ω angle (the Cα–C–N–Cα dihedral; |ω| < 30° is cis). Each residue is scored against its own category's reference distribution as favoured, allowed, or outlier.
 
 ### About the contours and percentages
 
-The favoured/allowed regions are a smooth analytical model (a Gaussian mixture on the canonical basins), **not** the MolProbity reference densities. The thresholds are calibrated so a structure following the canonical distribution reads about 98% favoured / 2% allowed, mirroring the MolProbity convention — but the model is still an approximation. Read it for the shape of conformational space and for comparing structures; treat the percentages as indicative, not validation-grade. For deposition or structure validation, use MolProbity or Phenix.
+When the Top8000 reference data file (`rama-data.js`) is present, the contours and the favoured/allowed/outlier calls are the actual MolProbity reference distributions (Top8000, Richardson Lab, Duke), with favoured = the 98% contour and allowed = the 99.95% contour of the reference population — the same convention MolProbity and Phenix use. If that file isn't loaded, RamaComp falls back to a built-in analytical approximation of the basins (four categories, indicative percentages only). Either way, for formal deposition or validation use MolProbity or Phenix directly.
+
+## Reference data
+
+The validation-grade contours come from the **Top8000** Ramachandran reference distributions (Richardson Lab, Duke; the same data MolProbity and Phenix use). They are not committed in raw form — they are downloaded and baked into a compact `rama-data.js` by a one-off script:
+
+```bash
+python3 bake_rama.py     # needs internet; writes rama-data.js
+```
+
+`bake_rama.py` fetches the six grids (`rama8000-general-noGPIVpreP`, `rama8000-gly-sym`, `rama8000-ileval-nopreP`, `rama8000-prepro-noGP`, `rama8000-transpro`, `rama8000-cispro`) from [`github.com/rlabduke/rotarama_data`](https://github.com/rlabduke/rotarama_data), computes the 98% / 99.95% population contours, quantises each grid to a `uint16` base64 blob, and writes `window.RAMA_DATA`. Place `rama-data.js` next to `index.html` and commit both; `index.html` loads it with a `<script>` tag and upgrades automatically (and degrades gracefully to the analytical fallback if it's missing).
+
+Reference: Williams et al. (2018), *MolProbity: More and better reference data for improved all-atom structure validation*, **Protein Science** 27:293–315. Confirm the `chem_data` repository's terms before redistributing the baked data, and keep the citation.
 
 ### Known simplifications
 
-- Four residue classes, not MolProbity's six. Ile/Val are folded into *general*; cis- and trans-proline are not separated.
-- The ω (peptide) angle is not computed, so cis-peptides are not flagged.
+- With the Top8000 data loaded: the full six MolProbity categories including cis/trans-proline (via ω) and Ile/Val. Without it, a four-category analytical fallback (Ile/Val fold into *general*; cis/trans-proline merged).
+- ω is used only to split cis/trans-proline; non-proline cis-peptides and twisted peptides are not separately flagged.
 - One altloc per atom (highest occupancy); first model only for multi-model files.
 
 ## Run your own copy
@@ -64,7 +76,7 @@ The favoured/allowed regions are a smooth analytical model (a Gaussian mixture o
 The canonical instance is already live at [pranavathiyani.github.io/ramacomp](https://pranavathiyani.github.io/ramacomp/). To host your own (e.g. a fork):
 
 1. Create a public repository named `ramacomp`.
-2. Add `index.html` to the repository root, along with `README.md`.
+2. Add `index.html` to the repository root, along with `README.md` and (for validation-grade contours) `rama-data.js` generated by `bake_rama.py`.
 3. In the repo, go to **Settings → Pages**, set **Source** to *Deploy from a branch*, branch `main`, folder `/ (root)`, and save.
 4. After a minute it goes live at `https://<your-username>.github.io/ramacomp/`.
 
@@ -80,7 +92,7 @@ Tested against current Chromium, Firefox, and WebKit. Uses Canvas and inline SVG
 
 ## Data sources & credits
 
-Structures are fetched from the [RCSB PDB](https://www.rcsb.org) and the [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) (Jumper et al. 2021, *Nature*; Varadi et al. 2024, *NAR*; AlphaFold DB content is CC-BY-4.0). Co-developed by Pranavathiyani Gnanasekar & Claude.
+Structures are fetched from the [RCSB PDB](https://www.rcsb.org) and the [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) (Jumper et al. 2021, *Nature*; Varadi et al. 2024, *NAR*; AlphaFold DB content is CC-BY-4.0). Ramachandran reference distributions are the Top8000 dataset from the Richardson Lab, Duke (Williams et al. 2018, *Protein Science* 27:293–315). Co-developed by Pranavathiyani Gnanasekar & Claude.
 
 ## License
 

@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="rama-data.js" onerror="window.__noRama=1"></script>
 <style>
   :root{
     --surface:#FBFCFD;
@@ -279,8 +280,10 @@
         <select id="refSel">
           <option value="general" selected>General</option>
           <option value="glycine">Glycine</option>
-          <option value="proline">Proline</option>
-          <option value="preproline">Pre-proline</option>
+          <option value="ileval">Ile / Val</option>
+          <option value="prepro">Pre-proline</option>
+          <option value="transpro">trans-Proline</option>
+          <option value="cispro">cis-Proline</option>
           <option value="none">None</option>
         </select>
       </div>
@@ -351,7 +354,7 @@
       <div class="formula">φ = dihedral( C(i−1), N(i),  Cα(i), C(i)   )
 ψ = dihedral( N(i),   Cα(i), C(i),  N(i+1) )</div>
       <p>Dihedrals use the Praxeolitic formula (IUPAC sign convention). A residue is plotted only when both flanking peptide bonds (C–N) are shorter than 2.0 Å, so chain termini and breaks are skipped rather than producing spurious angles. First model only; the highest-occupancy alternate conformation is kept.</p>
-      <p>Residue classes follow MolProbity precedence: <b>Gly → Pro → pre-Pro → general</b>. Each point is scored against its own class as favoured, allowed, or outlier.</p>
+      <p>Residues are sorted into the six MolProbity categories — <b>cis-Pro, trans-Pro, Gly, pre-Pro, Ile/Val, general</b> (in that precedence) — with cis vs trans proline decided by the peptide ω angle (the CA–C–N–CA dihedral; |ω| &lt; 30° is cis). Each residue is scored against its own category's reference distribution as favoured, allowed, or outlier.</p>
 
       <h2>Colouring</h2>
       <ul>
@@ -361,17 +364,17 @@
       </ul>
 
       <h2>About the contours and percentages</h2>
-      <p>The favoured/allowed regions are a smooth analytical model (a Gaussian mixture on the canonical basins), <b>not</b> the MolProbity reference densities. The contour thresholds are calibrated so a structure following the canonical distribution reads about 98% favoured / 2% allowed, mirroring the MolProbity convention — but the model is still an approximation. Read it for the shape of conformational space and for comparing structures against each other; treat the percentages as indicative, not validation-grade. For deposition or structure validation, use MolProbity or Phenix.</p>
+      <p>When the Top8000 reference data file (<code>rama-data.js</code>) is present, the contours and the favoured/allowed/outlier calls are the actual MolProbity reference distributions (Top8000, Richardson Lab), with favoured = the 98% contour and allowed = the 99.95% contour of the reference population — the same convention MolProbity and Phenix use. If that file isn't loaded, RamaComp falls back to a built-in analytical approximation of the basins (four categories, indicative percentages only). Either way, for formal deposition or validation use MolProbity or Phenix directly.</p>
 
       <h2>Known simplifications</h2>
       <ul>
-        <li>Four residue classes, not MolProbity's six (Ile/Val fold into <i>general</i>; cis/trans-proline are not separated).</li>
-        <li>The ω peptide angle is not computed, so cis-peptides are not flagged.</li>
+        <li>With the Top8000 data loaded: the full six MolProbity categories including cis/trans-proline (via ω) and Ile/Val. Without it, a four-category analytical fallback (Ile/Val fold into <i>general</i>, cis/trans-proline merged).</li>
+        <li>ω is used only to split cis/trans-proline; non-proline cis-peptides and twisted peptides are not separately flagged.</li>
         <li>One altloc per atom (highest occupancy); first model only for multi-model files.</li>
       </ul>
 
       <h2>Data sources &amp; credits</h2>
-      <p class="muted">Structures fetched from the <a href="https://www.rcsb.org" target="_blank" rel="noopener">RCSB PDB</a> and the <a href="https://alphafold.ebi.ac.uk" target="_blank" rel="noopener">AlphaFold Protein Structure Database</a> (Jumper et al. 2021, <i>Nature</i>; Varadi et al. 2024, <i>NAR</i>; AlphaFold DB content is CC-BY-4.0). RamaComp is co-developed by Pranavathiyani Gnanasekar &amp; Claude, and released under the MIT License. Source: <a href="https://github.com/pranavathiyani/ramacomp" target="_blank" rel="noopener">github.com/pranavathiyani/ramacomp</a>.</p>
+      <p class="muted">Structures fetched from the <a href="https://www.rcsb.org" target="_blank" rel="noopener">RCSB PDB</a> and the <a href="https://alphafold.ebi.ac.uk" target="_blank" rel="noopener">AlphaFold Protein Structure Database</a> (Jumper et al. 2021, <i>Nature</i>; Varadi et al. 2024, <i>NAR</i>; AlphaFold DB content is CC-BY-4.0). Ramachandran reference distributions are the Top8000 dataset from the Richardson Lab, Duke (Williams et al. 2018, <i>Protein Science</i> 27:293–315). RamaComp is co-developed by Pranavathiyani Gnanasekar &amp; Claude, and released under the MIT License. Source: <a href="https://github.com/pranavathiyani/ramacomp" target="_blank" rel="noopener">github.com/pranavathiyani/ramacomp</a>.</p>
     </div>
   </section>
 </main>
@@ -525,7 +528,7 @@ const BASINS={
     {p:-63,s:148,a:13,b:16,w:1.0},{p:-125,s:130,a:24,b:20,w:0.75},{p:-63,s:-38,a:12,b:12,w:0.5}
   ]
 };
-const FAV=0.02, ALLOW=0.0006;
+const FAV=0.02, ALLOW=0.0006; // fallback (analytical) thresholds
 const wrap=d=>{d=((d+180)%360+360)%360-180;return d;};
 function rawDensity(phi,psi,basins){
   let d=0;
@@ -543,12 +546,47 @@ for(const k in BASINS){
   }
   CLASS_MAX[k]=m;
 }
+
+/* ---------- reference distributions: Top8000 grids if baked (rama-data.js), else analytical ---------- */
+const RAMA=(typeof window!=="undefined"&&window.RAMA_DATA&&window.RAMA_DATA.classes)?window.RAMA_DATA:null;
+function decodeGrid(o){
+  if(o._vals) return o;
+  const bin=atob(o.b64), len=bin.length>>1, v=new Float64Array(len), s=o.max/65535;
+  for(let i=0;i<len;i++) v[i]=(bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8))*s;
+  o._vals=v;return o;
+}
+if(RAMA) for(const k in RAMA.classes) decodeGrid(RAMA.classes[k]);
+// map the six analysis categories onto whichever distributions are available
+function densClass(c){
+  if(RAMA) return RAMA.classes[c]?c:"general";
+  if(c==="cispro"||c==="transpro") return "proline";
+  if(c==="ileval") return "general";
+  if(c==="prepro") return "preproline";
+  return c; // general, glycine
+}
+function gridVal(g,phi,psi){
+  const n=g.n, v=g._vals;
+  const fx=(((phi%360)+360)%360)/360*n-0.5;
+  const fy=(((psi%360)+360)%360)/360*n-0.5;
+  let x0=Math.floor(fx), y0=Math.floor(fy);
+  const tx=fx-x0, ty=fy-y0, W=i=>((i%n)+n)%n;
+  const x1=W(x0+1), y1=W(y0+1); x0=W(x0); y0=W(y0);
+  return v[y0*n+x0]*(1-tx)*(1-ty)+v[y0*n+x1]*tx*(1-ty)+v[y1*n+x0]*(1-tx)*ty+v[y1*n+x1]*tx*ty;
+}
 function classify(phi,psi,cls){
-  const d=rawDensity(phi,psi,BASINS[cls])/CLASS_MAX[cls];
+  const dc=densClass(cls);
+  if(RAMA){
+    const g=RAMA.classes[dc], d=gridVal(g,phi,psi);
+    if(d>=g.fav) return "favored";
+    if(d>=g.allow) return "allowed";
+    return "outlier";
+  }
+  const d=rawDensity(phi,psi,BASINS[dc])/CLASS_MAX[dc];
   if(d>=FAV) return "favored";
   if(d>=ALLOW) return "allowed";
   return "outlier";
 }
+
 function computeAngles(chains){
   const pts=[];
   for(const ch of chains.values()){
@@ -564,9 +602,14 @@ function computeAngles(chains){
       const psi=dihedral(N.xyz,CA.xyz,C.xyz,next.atoms.N.xyz);
       if(phi===null||psi===null) continue;
       let cls;
-      if(r.resName==="GLY") cls="glycine";
-      else if(r.resName==="PRO") cls="proline";
-      else if(next.resName==="PRO") cls="preproline";
+      if(r.resName==="PRO"){
+        let omega=null;
+        if(prev.atoms.CA&&prev.atoms.C) omega=dihedral(prev.atoms.CA.xyz,prev.atoms.C.xyz,N.xyz,CA.xyz);
+        cls=(omega!==null&&Math.abs(wrap(omega))<30)?"cispro":"transpro";
+      }
+      else if(r.resName==="GLY") cls="glycine";
+      else if(next.resName==="PRO") cls="prepro";
+      else if(r.resName==="ILE"||r.resName==="VAL") cls="ileval";
       else cls="general";
       pts.push({chain:r.chain,seq:r.seq,icode:r.icode,resName:r.resName,phi,psi,cls,status:classify(phi,psi,cls),b:CA.b});
     }
@@ -579,18 +622,20 @@ const bgCache={};
 function backgroundCanvas(cls){
   if(cls==="none") return null;
   if(bgCache[cls]) return bgCache[cls];
-  const N=180; // 2-degree grid
+  const dc=densClass(cls), N=180;
   const off=document.createElement("canvas");off.width=N;off.height=N;
   const ctx=off.getContext("2d");const img=ctx.createImageData(N,N);
   const favC=[15,124,117,Math.round(.30*255)], alC=[15,124,117,Math.round(.11*255)];
-  const max=CLASS_MAX[cls],basins=BASINS[cls];
+  const useGrid=!!RAMA, g=useGrid?RAMA.classes[dc]:null;
+  const favCut=useGrid?g.fav:FAV, alCut=useGrid?g.allow:ALLOW;
+  const max=useGrid?1:CLASS_MAX[dc], basins=useGrid?null:BASINS[dc];
   for(let r=0;r<N;r++){
     const psi=180-(r+0.5)/N*360;
     for(let c=0;c<N;c++){
       const phi=-180+(c+0.5)/N*360;
-      const d=rawDensity(phi,psi,basins)/max;
+      const d=useGrid?gridVal(g,phi,psi):rawDensity(phi,psi,basins)/max;
       const o=(r*N+c)*4;let col=null;
-      if(d>=FAV) col=favC; else if(d>=ALLOW) col=alC;
+      if(d>=favCut) col=favC; else if(d>=alCut) col=alC;
       if(col){img.data[o]=col[0];img.data[o+1]=col[1];img.data[o+2]=col[2];img.data[o+3]=col[3];}
     }
   }
@@ -599,7 +644,8 @@ function backgroundCanvas(cls){
 }
 
 /* ---------- plot rendering (on-screen canvas) ---------- */
-const COLORS={general:"#2563EB",glycine:"#15803D",proline:"#C2410C",preproline:"#7C3AED"};
+const COLORS={general:"#2563EB",glycine:"#15803D",ileval:"#0EA5E9",prepro:"#7C3AED",transpro:"#C2410C",cispro:"#DB2777"};
+const CLASS_LABEL={general:"General",glycine:"Glycine",ileval:"Ile/Val",prepro:"Pre-Pro",transpro:"trans-Pro",cispro:"cis-Pro"};
 const CHAIN_PAL=["#2563EB","#0F7C75","#C2410C","#7C3AED","#15803D","#DB2777","#CA8A04","#0EA5E9","#9333EA","#E11D48","#65A30D","#0D9488"];
 const BMISS="#9aa7ab";
 function rampColor(t){
@@ -757,7 +803,7 @@ function svgPanel(struct,st,ox,oy,bgURL){
 
 function svgLegend(st,x,y){
   const items=[];
-  if(st.color==="class") items.push(["dot","#2563EB","General"],["dot","#15803D","Glycine"],["dot","#C2410C","Proline"],["dot","#7C3AED","Pre-proline"]);
+  if(st.color==="class") items.push(["dot","#2563EB","General"],["dot","#15803D","Glycine"],["dot","#0EA5E9","Ile/Val"],["dot","#7C3AED","Pre-Pro"],["dot","#C2410C","trans-Pro"],["dot","#DB2777","cis-Pro"]);
   else if(st.color==="bfactor") items.push(["grad",null,"B-factor / pLDDT  (low \u2192 high)"]);
   else items.push(["txt",null,"Points coloured by chain"]);
   items.push(["ring","#DC2626","Outlier"],["sw","rgba(15,124,117,0.30)","Favoured"],["sw","rgba(15,124,117,0.11)","Allowed"]);
@@ -1040,15 +1086,16 @@ function renderLegend(){
   } else if(state.color==="chain"){
     html+=`<span class="item">Points coloured by chain</span>`;
   } else {
-    html+=`<span class="item"><span class="dot" style="background:var(--c-general)"></span>General</span>`+
-      `<span class="item"><span class="dot" style="background:var(--c-glycine)"></span>Glycine</span>`+
-      `<span class="item"><span class="dot" style="background:var(--c-proline)"></span>Proline</span>`+
-      `<span class="item"><span class="dot" style="background:var(--c-prepro)"></span>Pre-proline</span>`;
+    for(const k of ["general","glycine","ileval","prepro","transpro","cispro"])
+      html+=`<span class="item"><span class="dot" style="background:${COLORS[k]}"></span>${CLASS_LABEL[k]}</span>`;
   }
+  const note = RAMA
+    ? "Contours and favoured/allowed use the Top8000 (MolProbity) reference distributions."
+    : "Contours are an analytical approximation of the canonical basins (Top8000 data not loaded) — indicative, not validation-grade.";
   html+=`<span class="item"><span class="dot" style="background:var(--c-outlier);box-shadow:0 0 0 2px rgba(220,38,38,.25)"></span>Outlier</span>`+
     `<span class="item"><span class="swatch" style="background:var(--fav)"></span>Favoured</span>`+
     `<span class="item"><span class="swatch" style="background:var(--allow)"></span>Allowed</span>`+
-    `<span class="note">Contours are a smooth analytical model of the canonical basins, not MolProbity densities — read them for shape and comparison, not as validation statistics.</span>`;
+    `<span class="note">${note}</span>`;
   legend.innerHTML=html;
 }
 
