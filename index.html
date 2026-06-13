@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RamaComp · compare Ramachandran plots</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzBFMkEyRiIvPjxwYXRoIGQ9Ik04IDI0VjhNOCAyNGgxNiIgc3Ryb2tlPSIjN0ZCN0IwIiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBhdGggZD0iTTggMTZoMTZNMTYgOHYxNiIgc3Ryb2tlPSIjM0M2RjZBIiBzdHJva2Utd2lkdGg9IjEiLz48Y2lyY2xlIGN4PSIxMi41IiBjeT0iMTkiIHI9IjIuMSIgZmlsbD0iIzE0OTM4QSIvPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjIuMSIgZmlsbD0iIzVCOERFRiIvPjxjaXJjbGUgY3g9IjIxIiBjeT0iMTMiIHI9IjEuNiIgZmlsbD0iI0UwODQzRiIvPjwvc3ZnPgo=">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -360,7 +361,7 @@
       </ul>
 
       <h2>About the contours and percentages</h2>
-      <p>The favoured/allowed regions are a smooth analytical model (a Gaussian mixture on the canonical basins), <b>not</b> the MolProbity reference densities. Read them for the shape of conformational space and for comparing structures against each other. The favoured/allowed/outlier percentages are indicative, not validation-grade. For deposition or structure validation, use MolProbity or Phenix.</p>
+      <p>The favoured/allowed regions are a smooth analytical model (a Gaussian mixture on the canonical basins), <b>not</b> the MolProbity reference densities. The contour thresholds are calibrated so a structure following the canonical distribution reads about 98% favoured / 2% allowed, mirroring the MolProbity convention — but the model is still an approximation. Read it for the shape of conformational space and for comparing structures against each other; treat the percentages as indicative, not validation-grade. For deposition or structure validation, use MolProbity or Phenix.</p>
 
       <h2>Known simplifications</h2>
       <ul>
@@ -524,7 +525,7 @@ const BASINS={
     {p:-63,s:148,a:13,b:16,w:1.0},{p:-125,s:130,a:24,b:20,w:0.75},{p:-63,s:-38,a:12,b:12,w:0.5}
   ]
 };
-const FAV=0.15, ALLOW=0.0035;
+const FAV=0.02, ALLOW=0.0006;
 const wrap=d=>{d=((d+180)%360+360)%360-180;return d;};
 function rawDensity(phi,psi,basins){
   let d=0;
@@ -1104,18 +1105,24 @@ function classifyId(id){
                        : {kind:"af",acc:id.toUpperCase(),label:id.toUpperCase()};
 }
 async function fetchText(url){ const r=await fetch(url); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); }
+async function fetchJSON(url){ const r=await fetch(url); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 async function fetchOne(raw){
   const c=classifyId(raw); if(!c) return false;
   try{
-    let text;
     if(c.kind==="pdb"){
+      let text;
       try{ text=await fetchText(`https://files.rcsb.org/download/${c.acc}.cif`); }
       catch(_){ text=await fetchText(`https://files.rcsb.org/download/${c.acc}.pdb`); }
+      ingest(c.label, text);
     } else {
-      try{ text=await fetchText(`https://alphafold.ebi.ac.uk/files/AF-${c.acc}-F1-model_v4.cif`); }
-      catch(_){ text=await fetchText(`https://alphafold.ebi.ac.uk/files/AF-${c.acc}-F1-model_v4.pdb`); }
+      // AlphaFold DB versions its filenames (…model_v6.cif and rising); the prediction
+      // API is keyed on the UniProt accession and returns the current file URL.
+      const meta=await fetchJSON(`https://alphafold.ebi.ac.uk/api/prediction/${c.acc}`);
+      if(!Array.isArray(meta)||!meta.length) throw new Error("no AlphaFold model for "+c.acc);
+      const m=meta[0], url=m.cifUrl||m.pdbUrl;
+      if(!url) throw new Error("no file URL in API response");
+      ingest(m.entryId||c.label, await fetchText(url));
     }
-    ingest(c.label, text);
     return true;
   }catch(err){
     structs.push({id:++uid,name:raw.trim(),error:`Could not fetch "${raw.trim()}" (${err.message||err}). Check the ID, or it may not exist in ${c.kind==="pdb"?"the PDB":"AlphaFold DB"}.`});

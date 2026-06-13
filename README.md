@@ -14,20 +14,27 @@ Most Ramachandran tools (MolProbity, RAMPAGE, RamPlot, the viewers in PyMOL/Chim
 
 ## Features
 
-- **Multiple structures at once.** Load any number of files; each gets its own plot. Choose how many sit side by side (1–5 columns, or auto).
-- **PDB and mmCIF.** Author numbering is preferred when present, with fallback to label fields. First model only; the highest-occupancy alternate conformation is kept.
-- **Honest reference contours** for the four standard residue classes (general, glycine, proline, pre-proline), with each residue scored against its own class.
-- **Interactive.** Hover any point for chain, residue, φ, ψ, class, and region. Per-structure favoured/allowed/outlier counts, plus a clickable outlier list that highlights the point on the plot.
-- **Colour by residue type or by chain**, and filter to outliers only.
-- **Export in PNG, JPEG, SVG, and PDF** — both for a single plot and for a combined side-by-side comparison figure of the structures you select. SVG is true vector for the axes, points, and labels (the smooth contour field is embedded as a raster layer), so you can edit it in Illustrator or Inkscape.
+- **Two ways in.** Drop/open local `.pdb` / `.mmcif` files, or **fetch by ID** — a PDB code pulls from RCSB, a UniProt/AlphaFold accession pulls the model from the AlphaFold DB.
+- **Multiple structures at once.** Each gets its own plot; choose how many sit side by side (1–5, or auto, and it never crowds them below readable width on small screens).
+- **PDB and mmCIF.** Author numbering preferred, with fallback to label fields. First model only; highest-occupancy altloc kept.
+- **Reference contours** for the four standard residue classes (general, glycine, proline, pre-proline), each residue scored against its own class. Thresholds are calibrated to MolProbity-like coverage (~98% favoured for a canonical structure).
+- **Colour points** by residue type, by chain, or by **B-factor / pLDDT** (a low→high ramp over the B-factor column — temperature factor for crystal structures, confidence for AlphaFold models).
+- **Interactive.** Hover for chain, residue, φ, ψ, class, region, and B-factor/pLDDT. Per-structure favoured/allowed/outlier counts and a clickable outlier list.
+- **Export** a single plot or a combined side-by-side comparison as **PNG, JPEG, SVG, or PDF**, or the underlying angles as **CSV**. SVG keeps axes, points, and labels as true vectors (the contour field rides along as a raster layer).
 
 ## How to use
 
 1. Open **[pranavathiyani.github.io/ramacomp](https://pranavathiyani.github.io/ramacomp/)** (or `index.html` locally).
-2. Drag structure files onto the drop zone, or click **Add files**. Accepts `.pdb`, `.ent`, `.cif`, `.mmcif`.
-3. Set **Columns** for the side-by-side layout, pick the **reference contour** set, and choose how points are coloured.
-4. To export one plot, use the download icon on its card and pick a format.
-5. To export a comparison figure, tick **compare** on the cards you want (or leave all unticked to include every plot), then **Export comparison** and choose a format. The figure layout follows your **Columns** setting.
+2. In the **Workspace** tab, add structures: drag/open files, or type IDs into **Fetch by ID** (e.g. `1UBQ, 4HHB` or `P69905, AF-P69905`, comma-separated).
+3. Set **Columns**, pick the **reference contour** set, and choose how points are coloured (residue type / chain / B-factor·pLDDT).
+4. Hover points to inspect; open the outlier list under a plot to jump to outliers.
+5. Export one plot from the download icon on its card, or tick **compare** on several (or none = all) and use **Export comparison**. Pick PNG/JPEG/SVG/PDF for a figure, or CSV for the data.
+
+The **About / Help** tab documents the method and limitations in full.
+
+### Fetching structures
+
+IDs are routed automatically: a 4-character code (`1UBQ`) is treated as a PDB entry and pulled from `files.rcsb.org`; a UniProt or AlphaFold accession (`P69905`, `AF-P69905`) goes to the AlphaFold DB. AlphaFold filenames are version-stamped (currently `…model_v6`), so RamaComp asks the AlphaFold **prediction API** (`/api/prediction/{accession}`) for the current file URL rather than hard-coding a version. Everything is fetched directly from those public servers to your browser; nothing passes through any RamaComp backend (there isn't one).
 
 ## How it works
 
@@ -44,7 +51,7 @@ Residue classes follow MolProbity precedence: **Gly → Pro → pre-Pro → gene
 
 ### About the contours and percentages
 
-The favoured/allowed regions are a smooth analytical model (a Gaussian mixture placed on the canonical basins), **not** the MolProbity reference densities. They are meant for reading the shape of conformational space and comparing structures against each other. The favoured/allowed/outlier percentages are indicative, not a substitute for validation-grade statistics. For deposition or structure validation, use MolProbity or Phenix.
+The favoured/allowed regions are a smooth analytical model (a Gaussian mixture on the canonical basins), **not** the MolProbity reference densities. The thresholds are calibrated so a structure following the canonical distribution reads about 98% favoured / 2% allowed, mirroring the MolProbity convention — but the model is still an approximation. Read it for the shape of conformational space and for comparing structures; treat the percentages as indicative, not validation-grade. For deposition or structure validation, use MolProbity or Phenix.
 
 ### Known simplifications
 
@@ -71,6 +78,10 @@ The page pulls IBM Plex fonts and the jsPDF library from a CDN. PNG, JPEG, and S
 
 Tested against current Chromium, Firefox, and WebKit. Uses Canvas and inline SVG; no framework, no bundler — a single self-contained HTML file.
 
+## Data sources & credits
+
+Structures are fetched from the [RCSB PDB](https://www.rcsb.org) and the [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) (Jumper et al. 2021, *Nature*; Varadi et al. 2024, *NAR*; AlphaFold DB content is CC-BY-4.0). Co-developed by Pranavathiyani Gnanasekar & Claude.
+
 ## License
 
-Released under the MIT License. Add a `LICENSE` file with the MIT text to make it explicit.
+Released under the [MIT License](LICENSE).
