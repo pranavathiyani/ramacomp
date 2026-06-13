@@ -184,6 +184,45 @@
   .menu button:hover{background:var(--surface)}
   .menu button .ext{font-family:"IBM Plex Mono";font-size:11px;color:var(--ink-soft)}
 
+  /* tabs */
+  .tabs{display:flex;gap:4px;margin-left:auto;align-self:flex-end}
+  .tab{border:0;background:transparent;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-soft);
+    cursor:pointer;padding:8px 14px;border-radius:9px 9px 0 0;border-bottom:2px solid transparent}
+  .tab:hover{color:var(--ink)}
+  .tab[aria-pressed=true]{color:var(--teal-deep);border-bottom-color:var(--teal)}
+  .tabpanel[hidden]{display:none}
+  .tabpanel .controls{border-bottom:1px solid var(--line);padding-bottom:18px;margin-left:0}
+
+  /* input row: upload + fetch */
+  .inputs{display:grid;grid-template-columns:1fr;gap:14px;margin-top:16px}
+  @media(min-width:780px){ .inputs{grid-template-columns:1.25fr 1fr;align-items:stretch} }
+  .inputs .dropzone{margin:0}
+  .fetchbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;justify-content:center;box-shadow:var(--shadow)}
+  .fetch-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;margin-bottom:8px}
+  .fetch-row{display:flex;gap:8px}
+  .fetch-row input{flex:1;min-width:0;border:1px solid var(--line-strong);border-radius:9px;padding:9px 12px;font-family:inherit;font-size:13.5px;color:var(--ink);background:#fff}
+  .fetch-row input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,124,117,.12)}
+  .fetch-hint{font-size:11.5px;color:var(--ink-soft);margin-top:9px;line-height:1.45}
+  .fetch-hint b{color:var(--ink)}
+  .btn[aria-busy=true]{opacity:.6;pointer-events:none}
+
+  /* gradient legend swatch (B-factor / pLDDT mode) */
+  .legend .grad{width:70px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.05);
+    background:linear-gradient(90deg,#30409a,#1f9fd4,#36b37e,#f2c037,#d6432f)}
+
+  /* about / help */
+  .about{background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px 32px;max-width:840px;box-shadow:var(--shadow);line-height:1.62}
+  .about h2{font-size:18px;margin:28px 0 9px;color:var(--ink)}
+  .about h2:first-child{margin-top:0}
+  .about p{margin:0 0 12px;color:#27424a}
+  .about ul{margin:0 0 12px;padding-left:20px;color:#27424a}
+  .about li{margin:4px 0}
+  .about code{font-family:"IBM Plex Mono";background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12.5px}
+  .about .formula{font-family:"IBM Plex Mono";background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:13px 15px;font-size:13px;margin:0 0 14px;line-height:1.7}
+  .about a,footer a{color:var(--teal-deep)}
+  .about .muted{color:var(--ink-soft);font-size:13px}
+  @media(max-width:640px){ .about{padding:20px 18px} }
+
   /* toast */
   .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;
     padding:10px 16px;border-radius:9px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;
@@ -209,7 +248,15 @@
       </div>
       <div class="sub">Compare backbone φ/ψ across <b>PDB</b> &amp; <b>mmCIF</b> structures — side by side, in your browser</div>
     </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-tab="workspace" aria-pressed="true">Workspace</button>
+      <button class="tab" data-tab="about" aria-pressed="false">About / Help</button>
+    </nav>
+  </div>
+</header>
 
+<main>
+  <section class="tabpanel" id="tab-workspace">
     <div class="controls">
       <div class="field">
         <label>Structures</label>
@@ -241,6 +288,7 @@
         <div class="seg" id="colorSeg">
           <button data-v="class" aria-pressed="true">Residue type</button>
           <button data-v="chain" aria-pressed="false">Chain</button>
+          <button data-v="bfactor" aria-pressed="false">B-factor / pLDDT</button>
         </div>
       </div>
       <div class="field">
@@ -255,42 +303,80 @@
         <button class="btn ghost" id="clearBtn">Clear all</button>
       </div>
     </div>
-  </div>
-</header>
 
-<main>
-  <div class="dropzone" id="dropzone">
-    <h2>Drop structure files here, or click to browse</h2>
-    <p>Add one or several — each gets its own φ/ψ map for side-by-side comparison.</p>
-    <div class="formats"><span>.pdb</span><span>.ent</span><span>.cif</span><span>.mmcif</span></div>
-  </div>
-  <input type="file" id="fileInput" accept=".pdb,.ent,.cif,.mmcif,.txt" multiple hidden>
+    <div class="inputs">
+      <div class="dropzone" id="dropzone">
+        <h2>Drop structure files here, or click to browse</h2>
+        <p>Add one or several — each gets its own φ/ψ map for side-by-side comparison.</p>
+        <div class="formats"><span>.pdb</span><span>.ent</span><span>.cif</span><span>.mmcif</span></div>
+      </div>
+      <div class="fetchbox">
+        <div class="fetch-label">Fetch by ID</div>
+        <div class="fetch-row">
+          <input id="fetchInput" type="text" autocomplete="off" spellcheck="false"
+            placeholder="e.g. 1UBQ, 4HHB  ·  P69905, AF-P69905">
+          <button class="btn primary" id="fetchBtn">Fetch</button>
+        </div>
+        <div class="fetch-hint">PDB IDs pull from <b>RCSB</b>; UniProt / AlphaFold accessions pull from the <b>AlphaFold DB</b> (pLDDT lands in the B-factor column). Separate several with commas.</div>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".pdb,.ent,.cif,.mmcif,.txt" multiple hidden>
 
-  <div class="legend" id="legend" hidden>
-    <span class="item"><span class="dot" style="background:var(--c-general)"></span>General</span>
-    <span class="item"><span class="dot" style="background:var(--c-glycine)"></span>Glycine</span>
-    <span class="item"><span class="dot" style="background:var(--c-proline)"></span>Proline</span>
-    <span class="item"><span class="dot" style="background:var(--c-prepro)"></span>Pre-proline</span>
-    <span class="item"><span class="dot" style="background:var(--c-outlier);box-shadow:0 0 0 2px rgba(220,38,38,.25)"></span>Outlier</span>
-    <span class="item"><span class="swatch" style="background:var(--fav)"></span>Favoured</span>
-    <span class="item"><span class="swatch" style="background:var(--allow)"></span>Allowed</span>
-    <span class="note">Contours are a smooth analytical model of the canonical basins, not MolProbity densities — read them for shape and comparison, not as validation statistics.</span>
-  </div>
+    <div class="legend" id="legend" hidden></div>
 
-  <div class="comparebar" id="comparebar" hidden>
-    <span class="cb-label" id="cbLabel">Comparison figure</span>
-    <button class="btn" id="cbExport">Export comparison ▾</button>
-    <span class="cb-hint">Tick plots to include, or export all. Layout follows <b>Columns</b>.</span>
-  </div>
+    <div class="comparebar" id="comparebar" hidden>
+      <span class="cb-label" id="cbLabel">Comparison figure</span>
+      <button class="btn" id="cbExport">Export comparison ▾</button>
+      <span class="cb-hint">Tick plots to include, or export all. Layout follows <b>Columns</b>.</span>
+    </div>
 
-  <div class="grid" id="grid"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="tabpanel" id="tab-about" hidden>
+    <div class="about">
+      <h2>What RamaComp is</h2>
+      <p>A browser tool for reading and comparing backbone Ramachandran (φ/ψ) plots across two or more protein structures at once — experimental structures, predicted models, or both. Everything runs locally: structure files you open are parsed in your browser and never uploaded. Files fetched by ID are pulled directly from the public RCSB and AlphaFold servers to your browser.</p>
+
+      <h2>Using it</h2>
+      <ul>
+        <li><b>Add structures</b> by dropping/opening files, or type an ID into <b>Fetch by ID</b>. A 4-character code (<code>1UBQ</code>, <code>4HHB</code>) is treated as a PDB entry; a UniProt or AlphaFold accession (<code>P69905</code>, <code>AF-P69905</code>) pulls the AlphaFold model.</li>
+        <li><b>Compare</b> side by side; set how many plots sit per row with <b>Columns</b>.</li>
+        <li><b>Inspect</b> by hovering a point for chain, residue, φ, ψ, class, region, and B-factor/pLDDT. The outlier list under each plot is clickable.</li>
+        <li><b>Export</b> a single plot or a combined comparison figure as PNG, JPEG, SVG, or PDF, or the underlying angles as CSV.</li>
+      </ul>
+
+      <h2>How the angles are computed</h2>
+      <div class="formula">φ = dihedral( C(i−1), N(i),  Cα(i), C(i)   )
+ψ = dihedral( N(i),   Cα(i), C(i),  N(i+1) )</div>
+      <p>Dihedrals use the Praxeolitic formula (IUPAC sign convention). A residue is plotted only when both flanking peptide bonds (C–N) are shorter than 2.0 Å, so chain termini and breaks are skipped rather than producing spurious angles. First model only; the highest-occupancy alternate conformation is kept.</p>
+      <p>Residue classes follow MolProbity precedence: <b>Gly → Pro → pre-Pro → general</b>. Each point is scored against its own class as favoured, allowed, or outlier.</p>
+
+      <h2>Colouring</h2>
+      <ul>
+        <li><b>Residue type</b> — general / glycine / proline / pre-proline.</li>
+        <li><b>Chain</b> — a distinct colour per chain.</li>
+        <li><b>B-factor / pLDDT</b> — a low→high ramp over the per-residue value in the B-factor column. For crystal structures that is the temperature factor; for AlphaFold models it is the pLDDT confidence (higher is more confident). The scale is normalised per structure.</li>
+      </ul>
+
+      <h2>About the contours and percentages</h2>
+      <p>The favoured/allowed regions are a smooth analytical model (a Gaussian mixture on the canonical basins), <b>not</b> the MolProbity reference densities. Read them for the shape of conformational space and for comparing structures against each other. The favoured/allowed/outlier percentages are indicative, not validation-grade. For deposition or structure validation, use MolProbity or Phenix.</p>
+
+      <h2>Known simplifications</h2>
+      <ul>
+        <li>Four residue classes, not MolProbity's six (Ile/Val fold into <i>general</i>; cis/trans-proline are not separated).</li>
+        <li>The ω peptide angle is not computed, so cis-peptides are not flagged.</li>
+        <li>One altloc per atom (highest occupancy); first model only for multi-model files.</li>
+      </ul>
+
+      <h2>Data sources &amp; credits</h2>
+      <p class="muted">Structures fetched from the <a href="https://www.rcsb.org" target="_blank" rel="noopener">RCSB PDB</a> and the <a href="https://alphafold.ebi.ac.uk" target="_blank" rel="noopener">AlphaFold Protein Structure Database</a> (Jumper et al. 2021, <i>Nature</i>; Varadi et al. 2024, <i>NAR</i>; AlphaFold DB content is CC-BY-4.0). RamaComp is co-developed by Pranavathiyani Gnanasekar &amp; Claude, and released under the MIT License. Source: <a href="https://github.com/pranavathiyani/ramacomp" target="_blank" rel="noopener">github.com/pranavathiyani/ramacomp</a>.</p>
+    </div>
+  </section>
 </main>
 
 <footer>
-  φ = C<sub>i−1</sub>–N<sub>i</sub>–Cα<sub>i</sub>–C<sub>i</sub> &nbsp;·&nbsp; ψ = N<sub>i</sub>–Cα<sub>i</sub>–C<sub>i</sub>–N<sub>i+1</sub>.
-  Residues need an intact peptide bond on both sides (C–N &lt; 2.0 Å); terminal residues and chain breaks are skipped. First model only; highest-occupancy altloc kept.
-  Categories follow MolProbity precedence: <code>Gly</code> → <code>Pro</code> → <code>pre-Pro</code> → <code>general</code>. Everything runs locally in your browser — no upload.
-  <div class="credit">RamaComp · co-developed by Pranavathiyani Gnanasekar &amp; Claude</div>
+  <div class="credit">RamaComp · co-developed by Pranavathiyani Gnanasekar &amp; Claude · <a href="https://github.com/pranavathiyani/ramacomp" target="_blank" rel="noopener">source</a></div>
 </footer>
 
 <script>
@@ -322,9 +408,9 @@ function getRes(chains,cid,seq,icode,resName){
   if(!r){r={chain:cid,seq,icode,resName,atoms:{}};ch.map.set(key,r);ch.order.push(r);}
   return r;
 }
-function addAtom(r,name,xyz,occ){
+function addAtom(r,name,xyz,occ,b){
   const cur=r.atoms[name];
-  if(!cur||occ>cur.occ) r.atoms[name]={xyz,occ};
+  if(!cur||occ>cur.occ) r.atoms[name]={xyz,occ,b};
 }
 
 function parsePDB(text){
@@ -346,7 +432,8 @@ function parsePDB(text){
     const seq=line.substring(22,26).trim();
     const icode=line.substring(26,27).trim();
     let occ=parseFloat(line.substring(54,60)); if(!isFinite(occ)) occ=1;
-    addAtom(getRes(chains,cid,seq,icode,resName),name,[x,y,z],occ);
+    let b=parseFloat(line.substring(60,66)); if(!isFinite(b)) b=null;
+    addAtom(getRes(chains,cid,seq,icode,resName),name,[x,y,z],occ,b);
   }
   return chains;
 }
@@ -388,6 +475,7 @@ function parseCIF(text){
         const cIns=pick("pdbx_PDB_ins_code");
         const cX=pick("Cartn_x"),cY=pick("Cartn_y"),cZ=pick("Cartn_z");
         const cOcc=pick("occupancy"),cModel=pick("pdbx_PDB_model_num"),cGroup=pick("group_PDB");
+        const cB=pick("B_iso_or_equiv");
         while(j<lines.length){
           const t=lines[j].trim();
           if(t===""||t==="#"||t.startsWith("_")||t==="loop_"||t.startsWith("data_")||t.startsWith("save_")||t.startsWith("stop_")||t.startsWith(";")) break;
@@ -405,7 +493,8 @@ function parseCIF(text){
           const seq=cSeq>=0?tok[cSeq]:"";
           const icode=cIns>=0?norm(tok[cIns]):"";
           let occ=cOcc>=0?parseFloat(tok[cOcc]):1; if(!isFinite(occ)) occ=1;
-          addAtom(getRes(chains,cid,seq,icode,resName),name,[x,y,z],occ);
+          let b=cB>=0?parseFloat(tok[cB]):NaN; if(!isFinite(b)) b=null;
+          addAtom(getRes(chains,cid,seq,icode,resName),name,[x,y,z],occ,b);
         }
         i=j;continue;
       } else { i=j;continue; }
@@ -478,7 +567,7 @@ function computeAngles(chains){
       else if(r.resName==="PRO") cls="proline";
       else if(next.resName==="PRO") cls="preproline";
       else cls="general";
-      pts.push({chain:r.chain,seq:r.seq,icode:r.icode,resName:r.resName,phi,psi,cls,status:classify(phi,psi,cls)});
+      pts.push({chain:r.chain,seq:r.seq,icode:r.icode,resName:r.resName,phi,psi,cls,status:classify(phi,psi,cls),b:CA.b});
     }
   }
   return pts;
@@ -511,6 +600,31 @@ function backgroundCanvas(cls){
 /* ---------- plot rendering (on-screen canvas) ---------- */
 const COLORS={general:"#2563EB",glycine:"#15803D",proline:"#C2410C",preproline:"#7C3AED"};
 const CHAIN_PAL=["#2563EB","#0F7C75","#C2410C","#7C3AED","#15803D","#DB2777","#CA8A04","#0EA5E9","#9333EA","#E11D48","#65A30D","#0D9488"];
+const BMISS="#9aa7ab";
+function rampColor(t){
+  t=Math.max(0,Math.min(1,t));
+  const stops=[[48,64,154],[31,159,212],[54,179,126],[242,192,55],[214,67,47]];
+  const x=t*(stops.length-1), i=Math.floor(x), f=x-i;
+  const a=stops[i], b=stops[Math.min(i+1,stops.length-1)];
+  const c=k=>Math.round(a[k]+(b[k]-a[k])*f);
+  return `rgb(${c(0)},${c(1)},${c(2)})`;
+}
+function bRange(struct){
+  if(struct._brange) return struct._brange;
+  let mn=Infinity,mx=-Infinity,has=false;
+  for(const p of struct.pts){ if(p.b!=null&&isFinite(p.b)){has=true; if(p.b<mn)mn=p.b; if(p.b>mx)mx=p.b;} }
+  struct._brange = has?{min:mn,max:mx,has:true}:{min:0,max:1,has:false};
+  return struct._brange;
+}
+function baseColor(p,struct,st){
+  if(st.color==="chain") return struct.chainCol[p.chain]||"#2563EB";
+  if(st.color==="bfactor"){
+    if(p.b==null||!isFinite(p.b)) return BMISS;
+    const r=bRange(struct); return rampColor(r.max>r.min?(p.b-r.min)/(r.max-r.min):0.5);
+  }
+  return COLORS[p.cls];
+}
+function outlierFill(p,struct,st){ return st.color==="class"?"#DC2626":baseColor(p,struct,st); }
 const M={l:46,r:14,t:14,b:40};
 const PW=360,PH=360;
 const LOGW=M.l+PW+M.r, LOGH=M.t+PH+M.b;
@@ -560,9 +674,9 @@ function drawPlot(canvas,struct,state,highlight){
     if(onlyOut&&p.status!=="outlier") continue;
     const x=px(p.phi),y=py(p.psi);
     screen.push({x,y,p});
-    const base = state.color==="chain"?chainCol[p.chain]:COLORS[p.cls];
+    const base = baseColor(p,struct,state);
     if(p.status==="outlier"){
-      ctx.beginPath();ctx.arc(x,y,size+0.4,0,7);ctx.fillStyle=state.color==="chain"?base:"#DC2626";ctx.fill();
+      ctx.beginPath();ctx.arc(x,y,size+0.4,0,7);ctx.fillStyle=outlierFill(p,struct,state);ctx.fill();
       ctx.lineWidth=1.1;ctx.strokeStyle="#DC2626";ctx.beginPath();ctx.arc(x,y,size+2.2,0,7);ctx.stroke();
     } else {
       ctx.beginPath();ctx.arc(x,y,size,0,7);ctx.fillStyle=base;ctx.globalAlpha=.9;ctx.fill();ctx.globalAlpha=1;
@@ -615,9 +729,9 @@ function svgPlotGroup(struct,st,ox,oy,bgURL){
   for(const p of struct.pts){
     if(onlyOut&&p.status!=="outlier") continue;
     const x=(px(p.phi)+ox).toFixed(1), y=(py(p.psi)+oy).toFixed(1);
-    const base=st.color==="chain"?struct.chainCol[p.chain]:COLORS[p.cls];
+    const base=baseColor(p,struct,st);
     if(p.status==="outlier"){
-      const fill=st.color==="chain"?base:"#DC2626";
+      const fill=outlierFill(p,struct,st);
       o.push(`<circle cx="${x}" cy="${y}" r="2.8" fill="${fill}"/>`);
       o.push(`<circle cx="${x}" cy="${y}" r="4.6" fill="none" stroke="#DC2626" stroke-width="1.1"/>`);
     } else {
@@ -643,13 +757,17 @@ function svgPanel(struct,st,ox,oy,bgURL){
 function svgLegend(st,x,y){
   const items=[];
   if(st.color==="class") items.push(["dot","#2563EB","General"],["dot","#15803D","Glycine"],["dot","#C2410C","Proline"],["dot","#7C3AED","Pre-proline"]);
+  else if(st.color==="bfactor") items.push(["grad",null,"B-factor / pLDDT  (low \u2192 high)"]);
   else items.push(["txt",null,"Points coloured by chain"]);
   items.push(["ring","#DC2626","Outlier"],["sw","rgba(15,124,117,0.30)","Favoured"],["sw","rgba(15,124,117,0.11)","Allowed"]);
-  const o=[`<g font-size="11.5" fill="#3C5A60">`]; let cx=x;
+  const o=[`<g font-size="11.5" fill="#3C5A60">`,
+    `<defs><linearGradient id="rcg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#30409a"/><stop offset="0.25" stop-color="#1f9fd4"/><stop offset="0.5" stop-color="#36b37e"/><stop offset="0.75" stop-color="#f2c037"/><stop offset="1" stop-color="#d6432f"/></linearGradient></defs>`];
+  let cx=x;
   for(const [type,color,label] of items){
     if(type==="dot"){ o.push(`<circle cx="${cx+5}" cy="${y}" r="5" fill="${color}"/>`); cx+=15; }
     else if(type==="ring"){ o.push(`<circle cx="${cx+5}" cy="${y}" r="3.4" fill="#DC2626"/><circle cx="${cx+5}" cy="${y}" r="5.4" fill="none" stroke="#DC2626" stroke-width="1.1"/>`); cx+=15; }
     else if(type==="sw"){ o.push(`<rect x="${cx}" y="${y-5}" width="13" height="10" rx="2" fill="${color}" stroke="rgba(0,0,0,0.06)"/>`); cx+=17; }
+    else if(type==="grad"){ o.push(`<rect x="${cx}" y="${y-5}" width="42" height="10" rx="2" fill="url(#rcg)" stroke="rgba(0,0,0,0.06)"/>`); cx+=46; }
     o.push(`<text x="${cx+3}" y="${y+4}">${esc(label)}</text>`);
     cx += label.length*6.3 + 14;
   }
@@ -713,6 +831,11 @@ async function exportFigure(list,format,opts){
   opts=opts||{};
   const base=opts.basename||"ramacomp";
   try{
+    if(format==="csv"){
+      download(new Blob([buildCSV(list)],{type:"text/csv;charset=utf-8"}), base+".csv");
+      toast("Exported "+base+".csv");
+      return;
+    }
     const doc=buildSVGDocument(list,state,opts);
     if(format==="svg"){
       download(new Blob([doc.svg],{type:"image/svg+xml;charset=utf-8"}), base+".svg");
@@ -734,6 +857,13 @@ async function exportFigure(list,format,opts){
     toast("Exported "+base+"."+(format==="jpeg"?"jpg":format));
   }catch(err){ toast("Export failed: "+(err.message||err),true); }
 }
+function csvCell(v){ v=(v==null?"":String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function buildCSV(list){
+  const rows=[["structure","chain","resnum","icode","resname","phi","psi","class","region","b_factor_or_plddt"]];
+  for(const s of list) for(const p of s.pts)
+    rows.push([s.name,p.chain,p.seq,p.icode,p.resName,p.phi.toFixed(2),p.psi.toFixed(2),p.cls,p.status,(p.b==null?"":p.b)]);
+  return rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+}
 
 /* ---------- toast + menu ---------- */
 let toastEl=null,toastT=null;
@@ -748,9 +878,10 @@ function onDocDown(e){ if(openMenuEl&&!openMenuEl.contains(e.target)) closeMenu(
 function openExportMenu(anchor,onPick){
   closeMenu();
   const menu=document.createElement("div");menu.className="menu";
-  menu.innerHTML=`<div class="mhead">Export as</div>`+
+  menu.innerHTML=`<div class="mhead">Figure</div>`+
     [["png","PNG"],["jpeg","JPEG"],["svg","SVG"],["pdf","PDF"]].map(([v,l])=>
-      `<button data-fmt="${v}">${l}<span class="ext">.${v==="jpeg"?"jpg":v}</span></button>`).join("");
+      `<button data-fmt="${v}">${l}<span class="ext">.${v==="jpeg"?"jpg":v}</span></button>`).join("")+
+    `<div class="mhead">Data</div><button data-fmt="csv">CSV<span class="ext">.csv</span></button>`;
   document.body.appendChild(menu);
   const r=anchor.getBoundingClientRect();
   const mw=140;
@@ -884,7 +1015,8 @@ function buildCard(struct){
       const p=best.p;
       tip.innerHTML=`<b>${esc(p.chain)}\u00b7${esc(p.resName)} ${esc(p.seq)}${esc(p.icode)}</b><br>`+
         `<span class="k">\u03c6</span> ${fmt(p.phi)}\u00b0 &nbsp; <span class="k">\u03c8</span> ${fmt(p.psi)}\u00b0<br>`+
-        `<span class="k">${p.cls}</span> \u00b7 ${p.status}`;
+        `<span class="k">${p.cls}</span> \u00b7 ${p.status}`+
+        (p.b!=null&&isFinite(p.b)?`<br><span class="k">B/pLDDT</span> ${p.b.toFixed(1)}`:"");
       let tx=best.x/sx+12, ty=best.y/sy-10;
       if(tx>rect.width-150) tx=best.x/sx-12-tip.offsetWidth;
       tip.style.left=tx+"px";tip.style.top=ty+"px";tip.classList.add("show");
@@ -897,15 +1029,37 @@ function buildCard(struct){
   return card;
 }
 
+function renderLegend(){
+  const data=dataStructs();
+  if(!data.length){ legend.hidden=true; return; }
+  legend.hidden=false;
+  let html="";
+  if(state.color==="bfactor"){
+    html+=`<span class="item"><span class="grad"></span>B-factor / pLDDT (low → high)</span>`;
+  } else if(state.color==="chain"){
+    html+=`<span class="item">Points coloured by chain</span>`;
+  } else {
+    html+=`<span class="item"><span class="dot" style="background:var(--c-general)"></span>General</span>`+
+      `<span class="item"><span class="dot" style="background:var(--c-glycine)"></span>Glycine</span>`+
+      `<span class="item"><span class="dot" style="background:var(--c-proline)"></span>Proline</span>`+
+      `<span class="item"><span class="dot" style="background:var(--c-prepro)"></span>Pre-proline</span>`;
+  }
+  html+=`<span class="item"><span class="dot" style="background:var(--c-outlier);box-shadow:0 0 0 2px rgba(220,38,38,.25)"></span>Outlier</span>`+
+    `<span class="item"><span class="swatch" style="background:var(--fav)"></span>Favoured</span>`+
+    `<span class="item"><span class="swatch" style="background:var(--allow)"></span>Allowed</span>`+
+    `<span class="note">Contours are a smooth analytical model of the canonical basins, not MolProbity densities — read them for shape and comparison, not as validation statistics.</span>`;
+  legend.innerHTML=html;
+}
+
 function render(){
   closeMenu();
   grid.innerHTML="";
   applyCols();
-  legend.hidden=structs.length===0;
+  renderLegend();
   for(const s of structs) grid.appendChild(buildCard(s));
   updateCompareBar();
 }
-function redrawAll(){ for(const s of structs) if(s._redraw) s._redraw(); }
+function redrawAll(){ renderLegend(); for(const s of structs) if(s._redraw) s._redraw(); }
 
 /* ---------- file handling ---------- */
 function detectFormat(name,text){
@@ -935,8 +1089,66 @@ function loadFiles(fileList){
   });
 }
 
+/* ---------- fetch by ID ---------- */
+const UNIPROT_RE=/^[OPQ][0-9][A-Z0-9]{3}[0-9]$|^[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2}$/i;
+function classifyId(id){
+  id=id.trim(); if(!id) return null;
+  if(/^AF[-_]/i.test(id)){
+    const acc=id.replace(/^AF[-_]/i,"").replace(/[-_]F\d+.*$/i,"");
+    return {kind:"af",acc:acc.toUpperCase(),label:id.toUpperCase()};
+  }
+  if(/^[0-9][A-Za-z0-9]{3}$/.test(id)) return {kind:"pdb",acc:id.toUpperCase(),label:id.toUpperCase()};
+  if(/^pdb_[0-9A-Za-z]{8}$/i.test(id)) return {kind:"pdb",acc:id.toLowerCase(),label:id.toUpperCase()};
+  if(UNIPROT_RE.test(id)) return {kind:"af",acc:id.toUpperCase(),label:id.toUpperCase()};
+  return id.length===4 ? {kind:"pdb",acc:id.toUpperCase(),label:id.toUpperCase()}
+                       : {kind:"af",acc:id.toUpperCase(),label:id.toUpperCase()};
+}
+async function fetchText(url){ const r=await fetch(url); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); }
+async function fetchOne(raw){
+  const c=classifyId(raw); if(!c) return false;
+  try{
+    let text;
+    if(c.kind==="pdb"){
+      try{ text=await fetchText(`https://files.rcsb.org/download/${c.acc}.cif`); }
+      catch(_){ text=await fetchText(`https://files.rcsb.org/download/${c.acc}.pdb`); }
+    } else {
+      try{ text=await fetchText(`https://alphafold.ebi.ac.uk/files/AF-${c.acc}-F1-model_v4.cif`); }
+      catch(_){ text=await fetchText(`https://alphafold.ebi.ac.uk/files/AF-${c.acc}-F1-model_v4.pdb`); }
+    }
+    ingest(c.label, text);
+    return true;
+  }catch(err){
+    structs.push({id:++uid,name:raw.trim(),error:`Could not fetch "${raw.trim()}" (${err.message||err}). Check the ID, or it may not exist in ${c.kind==="pdb"?"the PDB":"AlphaFold DB"}.`});
+    return false;
+  }
+}
+async function fetchIds(rawStr){
+  const ids=String(rawStr).split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+  if(!ids.length){ toast("Type a PDB or UniProt/AlphaFold ID first",true); return; }
+  const btn=document.getElementById("fetchBtn"), old=btn.textContent;
+  btn.setAttribute("aria-busy","true"); btn.textContent="Fetching…";
+  let ok=0;
+  for(const id of ids){ if(await fetchOne(id)) ok++; }
+  btn.removeAttribute("aria-busy"); btn.textContent=old;
+  document.getElementById("fetchInput").value="";
+  render();
+  if(ok) toast(`Fetched ${ok} of ${ids.length} structure${ids.length!==1?"s":""}`);
+  else toast("Nothing fetched — check the IDs",true);
+}
+
 /* ---------- wiring ---------- */
 document.getElementById("addBtn").onclick=()=>fileInput.click();
+const fetchInput=document.getElementById("fetchInput");
+document.getElementById("fetchBtn").onclick=()=>fetchIds(fetchInput.value);
+fetchInput.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); fetchIds(fetchInput.value); } });
+const tabsEl=document.getElementById("tabs");
+tabsEl.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  const t=b.dataset.tab;
+  tabsEl.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+  document.getElementById("tab-workspace").hidden = (t!=="workspace");
+  document.getElementById("tab-about").hidden = (t!=="about");
+  closeMenu();
+});
 dropzone.onclick=()=>fileInput.click();
 fileInput.onchange=()=>{loadFiles(fileInput.files);fileInput.value="";};
 ["dragenter","dragover"].forEach(e=>dropzone.addEventListener(e,ev=>{ev.preventDefault();dropzone.classList.add("drag");}));
