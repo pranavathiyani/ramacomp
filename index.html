@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RamaComp · compare Ramachandran plots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --surface:#FBFCFD;
+    --panel:#FFFFFF;
+    --ink:#0E2A2F;
+    --ink-soft:#3C5A60;
+    --line:#E4EAEC;
+    --line-strong:#CBD7D9;
+    --teal:#0F7C75;
+    --teal-deep:#0B5A55;
+    --c-general:#2563EB;
+    --c-glycine:#15803D;
+    --c-proline:#C2410C;
+    --c-prepro:#7C3AED;
+    --c-outlier:#DC2626;
+    --fav:rgba(15,124,117,.30);
+    --allow:rgba(15,124,117,.11);
+    --shadow:0 1px 2px rgba(14,42,47,.06),0 8px 24px rgba(14,42,47,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--surface);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.45;
+  }
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+  header.app{
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#fff, #fbfdfd);
+    position:sticky;top:0;z-index:20;
+  }
+  .head-inner{
+    max-width:1500px;margin:0 auto;padding:18px 24px 16px;
+    display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-end;
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;min-width:230px}
+  .brand .title{font-weight:700;font-size:21px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+  .brand .title .axes{width:22px;height:22px;flex:0 0 auto}
+  .brand .sub{font-size:12.5px;color:var(--ink-soft)}
+  .brand .sub b{color:var(--teal-deep);font-weight:600}
+
+  .controls{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end;margin-left:auto}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600}
+  select,.btn,input[type=range]{font-family:inherit}
+  select{
+    appearance:none;background:#fff;border:1px solid var(--line-strong);border-radius:8px;
+    padding:7px 30px 7px 11px;font-size:13px;color:var(--ink);cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%233C5A60' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 11px center;
+  }
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:#fff;padding:7px 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border-left:1px solid var(--line)}
+  .seg button:first-child{border-left:0}
+  .seg button[aria-pressed=true]{background:var(--teal);color:#fff;font-weight:600}
+  .btn{
+    border:1px solid var(--line-strong);background:#fff;border-radius:8px;padding:7px 13px;
+    font-size:13px;color:var(--ink);cursor:pointer;display:inline-flex;gap:7px;align-items:center;font-weight:500;
+  }
+  .btn:hover{border-color:var(--teal);color:var(--teal-deep)}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+  .btn.primary:hover{background:var(--teal-deep);color:#fff}
+  .btn.ghost{border-color:transparent;color:var(--ink-soft)}
+  .btn.ghost:hover{color:var(--c-outlier)}
+
+  main{max-width:1500px;margin:0 auto;padding:22px 24px 80px}
+
+  .dropzone{
+    border:1.5px dashed var(--line-strong);border-radius:14px;background:#fff;
+    padding:34px 24px;text-align:center;transition:border-color .15s,background .15s;cursor:pointer;
+  }
+  .dropzone.drag{border-color:var(--teal);background:rgba(15,124,117,.04)}
+  .dropzone h2{margin:0 0 6px;font-size:16px;font-weight:600}
+  .dropzone p{margin:0;color:var(--ink-soft);font-size:13px}
+  .dropzone .formats{margin-top:10px;font-size:11.5px;color:var(--ink-soft)}
+  .dropzone .formats span{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin:0 3px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:center;margin:20px 0 8px;font-size:12.5px;color:var(--ink-soft)}
+  .legend .item{display:inline-flex;align-items:center;gap:6px}
+  .legend .dot{width:11px;height:11px;border-radius:50%}
+  .legend .swatch{width:14px;height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.05)}
+  .legend .note{margin-left:auto;font-size:11.5px;max-width:430px;text-align:right;line-height:1.35}
+
+  .grid{display:grid;gap:18px;margin-top:14px}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:var(--shadow);display:flex;flex-direction:column;animation:rise .35s ease both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card-head{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .card-head .name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card-head .meta{font-size:11px;color:var(--ink-soft);white-space:nowrap}
+  .card-head .spacer{margin-left:auto}
+  .icon-btn{border:0;background:transparent;color:var(--ink-soft);cursor:pointer;padding:4px;border-radius:6px;display:inline-flex}
+  .icon-btn:hover{background:var(--line);color:var(--ink)}
+  .icon-btn.danger:hover{color:var(--c-outlier)}
+
+  .canvas-wrap{position:relative;padding:10px 12px 4px}
+  canvas.plot{width:100%;height:auto;display:block;touch-action:none}
+  .tooltip{
+    position:absolute;pointer-events:none;background:var(--ink);color:#fff;border-radius:7px;
+    padding:6px 9px;font-size:11.5px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.25);
+    opacity:0;transform:translateY(-4px);transition:opacity .08s;z-index:5;white-space:nowrap;
+  }
+  .tooltip.show{opacity:1;transform:none}
+  .tooltip .k{color:#9fd3ce}
+
+  .stats{display:flex;flex-wrap:wrap;gap:0;border-top:1px solid var(--line);font-size:12.5px}
+  .stat{flex:1 1 0;min-width:64px;padding:9px 12px;border-left:1px solid var(--line);text-align:center}
+  .stat:first-child{border-left:0}
+  .stat .v{font-family:"IBM Plex Mono";font-weight:600;font-size:15px;display:block}
+  .stat .l{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-top:1px}
+  .stat.fav .v{color:var(--teal-deep)}
+  .stat.out .v{color:var(--c-outlier)}
+
+  .outliers{border-top:1px solid var(--line)}
+  .outliers summary{cursor:pointer;list-style:none;padding:9px 14px;font-size:12.5px;font-weight:500;color:var(--ink-soft);display:flex;align-items:center;gap:8px}
+  .outliers summary::-webkit-details-marker{display:none}
+  .outliers summary .chev{transition:transform .15s}
+  .outliers[open] summary .chev{transform:rotate(90deg)}
+  .outliers summary:hover{color:var(--ink)}
+  .ol-list{max-height:170px;overflow:auto;border-top:1px solid var(--line)}
+  .ol-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:6px 14px;font-size:12px;cursor:pointer;border-top:1px solid var(--surface)}
+  .ol-row:hover{background:rgba(220,38,38,.06)}
+  .ol-row .who{font-weight:500}
+  .ol-row .ang{font-family:"IBM Plex Mono";color:var(--ink-soft)}
+  .card-error{padding:26px 16px;color:var(--c-outlier);font-size:13px;text-align:center}
+  .card-empty{padding:26px 16px;color:var(--ink-soft);font-size:13px;text-align:center}
+
+  footer{max-width:1500px;margin:0 auto;padding:0 24px 50px;color:var(--ink-soft);font-size:11.5px;line-height:1.5}
+  footer code{font-family:"IBM Plex Mono";background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+
+  footer .credit{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);color:var(--teal-deep);font-weight:500}
+
+  @media (max-width:640px){
+    .head-inner{padding:14px 16px}
+    main{padding:16px 16px 60px}
+    .controls{width:100%;margin-left:0}
+    .legend .note{display:none}
+  }
+
+  /* comparison bar */
+  .comparebar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0 4px;padding:11px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
+  .comparebar .cb-label{font-weight:600;font-size:13.5px}
+  .comparebar .cb-hint{font-size:11.5px;color:var(--ink-soft)}
+  .comparebar .cb-hint b{color:var(--ink)}
+
+  /* selection checkbox on cards */
+  .selbox{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft);cursor:pointer;user-select:none}
+  .selbox input{appearance:none;width:15px;height:15px;border:1.5px solid var(--line-strong);border-radius:4px;cursor:pointer;position:relative;flex:0 0 auto}
+  .selbox input:checked{background:var(--teal);border-color:var(--teal)}
+  .selbox input:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+  /* export menu */
+  .menu{position:absolute;z-index:50;background:#fff;border:1px solid var(--line-strong);border-radius:10px;
+    box-shadow:0 10px 30px rgba(14,42,47,.16);padding:5px;min-width:128px;animation:rise .12s ease both}
+  .menu .mhead{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);padding:5px 9px 3px}
+  .menu button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;border:0;background:#fff;
+    padding:8px 9px;border-radius:7px;font-size:13px;color:var(--ink);cursor:pointer;font-family:inherit}
+  .menu button:hover{background:var(--surface)}
+  .menu button .ext{font-family:"IBM Plex Mono";font-size:11px;color:var(--ink-soft)}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);background:var(--ink);color:#fff;
+    padding:10px 16px;border-radius:9px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;
+    transition:opacity .18s,transform .18s;z-index:80;pointer-events:none;max-width:88vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:#7f1d1d}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="head-inner">
+    <div class="brand">
+      <div class="title">
+        <svg class="axes" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 21V3M3 21h18" stroke="#0E2A2F" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M3 12h18M12 3v18" stroke="#CBD7D9" stroke-width="1"/>
+          <circle cx="8.5" cy="15.5" r="1.7" fill="#0F7C75"/>
+          <circle cx="7" cy="6.5" r="1.7" fill="#2563EB"/>
+          <circle cx="16" cy="8" r="1.3" fill="#C2410C"/>
+        </svg>
+        RamaComp
+      </div>
+      <div class="sub">Compare backbone φ/ψ across <b>PDB</b> &amp; <b>mmCIF</b> structures — side by side, in your browser</div>
+    </div>
+
+    <div class="controls">
+      <div class="field">
+        <label>Structures</label>
+        <button class="btn primary" id="addBtn">＋ Add files</button>
+      </div>
+      <div class="field">
+        <label>Columns</label>
+        <select id="colsSel">
+          <option value="auto">Auto</option>
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Reference contours</label>
+        <select id="refSel">
+          <option value="general" selected>General</option>
+          <option value="glycine">Glycine</option>
+          <option value="proline">Proline</option>
+          <option value="preproline">Pre-proline</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Colour points by</label>
+        <div class="seg" id="colorSeg">
+          <button data-v="class" aria-pressed="true">Residue type</button>
+          <button data-v="chain" aria-pressed="false">Chain</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Show</label>
+        <div class="seg" id="filterSeg">
+          <button data-v="all" aria-pressed="true">All</button>
+          <button data-v="outliers" aria-pressed="false">Outliers</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn ghost" id="clearBtn">Clear all</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="dropzone" id="dropzone">
+    <h2>Drop structure files here, or click to browse</h2>
+    <p>Add one or several — each gets its own φ/ψ map for side-by-side comparison.</p>
+    <div class="formats"><span>.pdb</span><span>.ent</span><span>.cif</span><span>.mmcif</span></div>
+  </div>
+  <input type="file" id="fileInput" accept=".pdb,.ent,.cif,.mmcif,.txt" multiple hidden>
+
+  <div class="legend" id="legend" hidden>
+    <span class="item"><span class="dot" style="background:var(--c-general)"></span>General</span>
+    <span class="item"><span class="dot" style="background:var(--c-glycine)"></span>Glycine</span>
+    <span class="item"><span class="dot" style="background:var(--c-proline)"></span>Proline</span>
+    <span class="item"><span class="dot" style="background:var(--c-prepro)"></span>Pre-proline</span>
+    <span class="item"><span class="dot" style="background:var(--c-outlier);box-shadow:0 0 0 2px rgba(220,38,38,.25)"></span>Outlier</span>
+    <span class="item"><span class="swatch" style="background:var(--fav)"></span>Favoured</span>
+    <span class="item"><span class="swatch" style="background:var(--allow)"></span>Allowed</span>
+    <span class="note">Contours are a smooth analytical model of the canonical basins, not MolProbity densities — read them for shape and comparison, not as validation statistics.</span>
+  </div>
+
+  <div class="comparebar" id="comparebar" hidden>
+    <span class="cb-label" id="cbLabel">Comparison figure</span>
+    <button class="btn" id="cbExport">Export comparison ▾</button>
+    <span class="cb-hint">Tick plots to include, or export all. Layout follows <b>Columns</b>.</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>
+  φ = C<sub>i−1</sub>–N<sub>i</sub>–Cα<sub>i</sub>–C<sub>i</sub> &nbsp;·&nbsp; ψ = N<sub>i</sub>–Cα<sub>i</sub>–C<sub>i</sub>–N<sub>i+1</sub>.
+  Residues need an intact peptide bond on both sides (C–N &lt; 2.0 Å); terminal residues and chain breaks are skipped. First model only; highest-occupancy altloc kept.
+  Categories follow MolProbity precedence: <code>Gly</code> → <code>Pro</code> → <code>pre-Pro</code> → <code>general</code>. Everything runs locally in your browser — no upload.
+  <div class="credit">RamaComp · co-developed by Pranavathiyani Gnanasekar &amp; Claude</div>
+</footer>
+
+<script>
+"use strict";
+
+/* ---------- geometry ---------- */
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const len=a=>Math.hypot(a[0],a[1],a[2]);
+function dihedral(p0,p1,p2,p3){
+  let b0=sub(p0,p1).map(v=>-v), b1=sub(p2,p1), b2=sub(p3,p2);
+  const n=len(b1); if(n===0) return null; b1=b1.map(v=>v/n);
+  const v=sub(b0,b1.map(x=>x*dot(b0,b1)));
+  const w=sub(b2,b1.map(x=>x*dot(b2,b1)));
+  return Math.atan2(dot(cross(b1,b0),w),dot(v,w))*180/Math.PI;
+}
+const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+
+const AA=new Set(["ALA","ARG","ASN","ASP","CYS","GLN","GLU","GLY","HIS","ILE","LEU","LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL","MSE","SEC","PYL","HYP","HSD","HSE","HSP","CSO","KCX","MLY","SEP","TPO","PTR","CME","CSD","OCS","FME"]);
+
+/* ---------- parsing ---------- */
+function newChain(){return {order:[],map:new Map()};}
+function getRes(chains,cid,seq,icode,resName){
+  if(!chains.has(cid)) chains.set(cid,newChain());
+  const ch=chains.get(cid);
+  const key=seq+"|"+icode;
+  let r=ch.map.get(key);
+  if(!r){r={chain:cid,seq,icode,resName,atoms:{}};ch.map.set(key,r);ch.order.push(r);}
+  return r;
+}
+function addAtom(r,name,xyz,occ){
+  const cur=r.atoms[name];
+  if(!cur||occ>cur.occ) r.atoms[name]={xyz,occ};
+}
+
+function parsePDB(text){
+  const chains=new Map();
+  let model=0;
+  const lines=text.split(/\r?\n/);
+  for(const line of lines){
+    const rec=line.substring(0,6).trim();
+    if(rec==="MODEL"){model++; continue;}
+    if(rec==="ENDMDL"){ if(model>=1) break; continue; }
+    if(rec!=="ATOM"&&rec!=="HETATM") continue;
+    const resName=line.substring(17,20).trim();
+    if(rec==="HETATM"&&!AA.has(resName)) continue;
+    const name=line.substring(12,16).trim();
+    if(name!=="N"&&name!=="CA"&&name!=="C") continue; // only backbone we need
+    const x=parseFloat(line.substring(30,38)),y=parseFloat(line.substring(38,46)),z=parseFloat(line.substring(46,54));
+    if(!isFinite(x)||!isFinite(y)||!isFinite(z)) continue;
+    const cid=line.substring(21,22).trim()||"A";
+    const seq=line.substring(22,26).trim();
+    const icode=line.substring(26,27).trim();
+    let occ=parseFloat(line.substring(54,60)); if(!isFinite(occ)) occ=1;
+    addAtom(getRes(chains,cid,seq,icode,resName),name,[x,y,z],occ);
+  }
+  return chains;
+}
+
+function tokenizeCif(line){
+  const out=[];let i=0;const n=line.length;
+  while(i<n){
+    while(i<n&&(line[i]===" "||line[i]==="\t")) i++;
+    if(i>=n) break;
+    const c=line[i];
+    if(c==="'"||c==='"'){
+      const q=c;i++;let s="";
+      while(i<n){ if(line[i]===q&&(i+1>=n||line[i+1]===" "||line[i+1]==="\t")){i++;break;} s+=line[i++]; }
+      out.push(s);
+    } else {
+      let s="";while(i<n&&line[i]!==" "&&line[i]!=="\t") s+=line[i++];
+      out.push(s);
+    }
+  }
+  return out;
+}
+function parseCIF(text){
+  const chains=new Map();
+  const lines=text.split(/\r?\n/);
+  let i=0,firstModel=null;
+  const norm=v=>(v==="."||v==="?")?"":v;
+  while(i<lines.length){
+    if(lines[i].trim()==="loop_"){
+      let j=i+1;const headers=[];
+      while(j<lines.length&&lines[j].trim().startsWith("_")){headers.push(lines[j].trim());j++;}
+      const idx={};headers.forEach((h,k)=>idx[h]=k);
+      const has=h=>("_atom_site."+h) in idx;
+      if(("_atom_site.group_PDB" in idx)||("_atom_site.Cartn_x" in idx)){
+        const pick=(...names)=>{for(const nm of names){if(("_atom_site."+nm) in idx) return idx["_atom_site."+nm];}return -1;};
+        const cName=pick("auth_atom_id","label_atom_id");
+        const cComp=pick("label_comp_id","auth_comp_id");
+        const cAsym=pick("auth_asym_id","label_asym_id");
+        const cSeq=pick("auth_seq_id","label_seq_id");
+        const cIns=pick("pdbx_PDB_ins_code");
+        const cX=pick("Cartn_x"),cY=pick("Cartn_y"),cZ=pick("Cartn_z");
+        const cOcc=pick("occupancy"),cModel=pick("pdbx_PDB_model_num"),cGroup=pick("group_PDB");
+        while(j<lines.length){
+          const t=lines[j].trim();
+          if(t===""||t==="#"||t.startsWith("_")||t==="loop_"||t.startsWith("data_")||t.startsWith("save_")||t.startsWith("stop_")||t.startsWith(";")) break;
+          const tok=tokenizeCif(lines[j]);j++;
+          if(tok.length<headers.length) continue;
+          if(cModel>=0){ if(firstModel===null) firstModel=tok[cModel]; else if(tok[cModel]!==firstModel) continue; }
+          const group=cGroup>=0?tok[cGroup]:"ATOM";
+          const resName=cComp>=0?tok[cComp]:"";
+          if(group==="HETATM"&&!AA.has(resName)) continue;
+          const name=cName>=0?tok[cName].replace(/"/g,""):"";
+          if(name!=="N"&&name!=="CA"&&name!=="C") continue;
+          const x=parseFloat(tok[cX]),y=parseFloat(tok[cY]),z=parseFloat(tok[cZ]);
+          if(!isFinite(x)||!isFinite(y)||!isFinite(z)) continue;
+          const cid=norm(cAsym>=0?tok[cAsym]:"")||"A";
+          const seq=cSeq>=0?tok[cSeq]:"";
+          const icode=cIns>=0?norm(tok[cIns]):"";
+          let occ=cOcc>=0?parseFloat(tok[cOcc]):1; if(!isFinite(occ)) occ=1;
+          addAtom(getRes(chains,cid,seq,icode,resName),name,[x,y,z],occ);
+        }
+        i=j;continue;
+      } else { i=j;continue; }
+    }
+    i++;
+  }
+  return chains;
+}
+
+/* ---------- angles + classification ---------- */
+const BASINS={
+  general:[
+    {p:-63,s:-42,a:14,b:13,w:1.00},{p:-110,s:128,a:30,b:26,w:1.00},
+    {p:-70,s:150,a:14,b:12,w:0.45},{p:-140,s:155,a:18,b:14,w:0.35},
+    {p:60,s:45,a:13,b:13,w:0.12}
+  ],
+  glycine:[
+    {p:-63,s:-42,a:16,b:15,w:1.0},{p:63,s:42,a:16,b:15,w:1.0},
+    {p:-110,s:130,a:30,b:26,w:0.9},{p:110,s:-130,a:30,b:26,w:0.9},
+    {p:-75,s:155,a:18,b:16,w:0.5},{p:75,s:-155,a:18,b:16,w:0.5},
+    {p:85,s:5,a:18,b:26,w:0.3},{p:-85,s:-5,a:18,b:26,w:0.3}
+  ],
+  proline:[
+    {p:-63,s:145,a:11,b:18,w:1.0},{p:-63,s:-40,a:11,b:13,w:0.75},{p:-63,s:75,a:11,b:20,w:0.15}
+  ],
+  preproline:[
+    {p:-63,s:148,a:13,b:16,w:1.0},{p:-125,s:130,a:24,b:20,w:0.75},{p:-63,s:-38,a:12,b:12,w:0.5}
+  ]
+};
+const FAV=0.15, ALLOW=0.0035;
+const wrap=d=>{d=((d+180)%360+360)%360-180;return d;};
+function rawDensity(phi,psi,basins){
+  let d=0;
+  for(const g of basins){
+    const dp=wrap(phi-g.p)/g.a, ds=wrap(psi-g.s)/g.b;
+    d+=g.w*Math.exp(-0.5*(dp*dp+ds*ds));
+  }
+  return d;
+}
+const CLASS_MAX={};
+for(const k in BASINS){
+  let m=0;
+  for(let phi=-180;phi<=180;phi+=2)for(let psi=-180;psi<=180;psi+=2){
+    const d=rawDensity(phi,psi,BASINS[k]); if(d>m)m=d;
+  }
+  CLASS_MAX[k]=m;
+}
+function classify(phi,psi,cls){
+  const d=rawDensity(phi,psi,BASINS[cls])/CLASS_MAX[cls];
+  if(d>=FAV) return "favored";
+  if(d>=ALLOW) return "allowed";
+  return "outlier";
+}
+function computeAngles(chains){
+  const pts=[];
+  for(const ch of chains.values()){
+    const arr=ch.order;
+    for(let i=0;i<arr.length;i++){
+      const r=arr[i],N=r.atoms.N,CA=r.atoms.CA,C=r.atoms.C;
+      if(!N||!CA||!C) continue;
+      const prev=arr[i-1],next=arr[i+1];
+      const phiOk=prev&&prev.atoms.C&&dist(prev.atoms.C.xyz,N.xyz)<2.0;
+      const psiOk=next&&next.atoms.N&&dist(C.xyz,next.atoms.N.xyz)<2.0;
+      if(!phiOk||!psiOk) continue;
+      const phi=dihedral(prev.atoms.C.xyz,N.xyz,CA.xyz,C.xyz);
+      const psi=dihedral(N.xyz,CA.xyz,C.xyz,next.atoms.N.xyz);
+      if(phi===null||psi===null) continue;
+      let cls;
+      if(r.resName==="GLY") cls="glycine";
+      else if(r.resName==="PRO") cls="proline";
+      else if(next.resName==="PRO") cls="preproline";
+      else cls="general";
+      pts.push({chain:r.chain,seq:r.seq,icode:r.icode,resName:r.resName,phi,psi,cls,status:classify(phi,psi,cls)});
+    }
+  }
+  return pts;
+}
+
+/* ---------- background contour cache ---------- */
+const bgCache={};
+function backgroundCanvas(cls){
+  if(cls==="none") return null;
+  if(bgCache[cls]) return bgCache[cls];
+  const N=180; // 2-degree grid
+  const off=document.createElement("canvas");off.width=N;off.height=N;
+  const ctx=off.getContext("2d");const img=ctx.createImageData(N,N);
+  const favC=[15,124,117,Math.round(.30*255)], alC=[15,124,117,Math.round(.11*255)];
+  const max=CLASS_MAX[cls],basins=BASINS[cls];
+  for(let r=0;r<N;r++){
+    const psi=180-(r+0.5)/N*360;
+    for(let c=0;c<N;c++){
+      const phi=-180+(c+0.5)/N*360;
+      const d=rawDensity(phi,psi,basins)/max;
+      const o=(r*N+c)*4;let col=null;
+      if(d>=FAV) col=favC; else if(d>=ALLOW) col=alC;
+      if(col){img.data[o]=col[0];img.data[o+1]=col[1];img.data[o+2]=col[2];img.data[o+3]=col[3];}
+    }
+  }
+  ctx.putImageData(img,0,0);
+  bgCache[cls]=off;return off;
+}
+
+/* ---------- plot rendering ---------- */
+const COLORS={general:"#2563EB",glycine:"#15803D",proline:"#C2410C",preproline:"#7C3AED"};
+const CHAIN_PAL=["#2563EB","#0F7C75","#C2410C","#7C3AED","#15803D","#DB2777","#CA8A04","#0EA5E9","#9333EA","#E11D48","#65A30D","#0D9488"];
+const M={l:46,r:14,t:14,b:40};
+const PW=360,PH=360;
+const LOGW=M.l+PW+M.r, LOGH=M.t+PH+M.b;
+const px=phi=>M.l+(phi+180)/360*PW;
+const py=psi=>M.t+(180-psi)/360*PH;
+
+function chainColors(pts){
+  const m={};let k=0;
+  for(const p of pts) if(!(p.chain in m)) m[p.chain]=CHAIN_PAL[k++%CHAIN_PAL.length];
+  return m;
+}
+
+function drawPlot(canvas,struct,state,highlight){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  canvas.width=LOGW*dpr;canvas.height=LOGH*dpr;
+  const ctx=canvas.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,LOGW,LOGH);
+
+  // plot frame background
+  ctx.fillStyle="#fff";ctx.fillRect(M.l,M.t,PW,PH);
+
+  // contours
+  const bg=backgroundCanvas(state.ref);
+  if(bg){ctx.imageSmoothingEnabled=true;ctx.drawImage(bg,M.l,M.t,PW,PH);}
+
+  // grid
+  ctx.strokeStyle="#EDF1F2";ctx.lineWidth=1;
+  ctx.fillStyle="#7C9296";ctx.font='500 10px "IBM Plex Mono"';
+  ctx.textAlign="center";ctx.textBaseline="top";
+  for(let v=-180;v<=180;v+=60){
+    const x=px(v);ctx.beginPath();ctx.moveTo(x,M.t);ctx.lineTo(x,M.t+PH);ctx.stroke();
+    ctx.fillText(v,x,M.t+PH+5);
+  }
+  ctx.textAlign="right";ctx.textBaseline="middle";
+  for(let v=-180;v<=180;v+=60){
+    const y=py(v);ctx.beginPath();ctx.moveTo(M.l,y);ctx.lineTo(M.l+PW,y);ctx.stroke();
+    ctx.fillText(v,M.l-6,y);
+  }
+  // origin cross
+  ctx.strokeStyle="#CBD7D9";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(px(0),M.t);ctx.lineTo(px(0),M.t+PH);
+  ctx.moveTo(M.l,py(0));ctx.lineTo(M.l+PW,py(0));ctx.stroke();
+  // frame
+  ctx.strokeStyle="#CBD7D9";ctx.lineWidth=1.2;ctx.strokeRect(M.l,M.t,PW,PH);
+
+  // axis labels
+  ctx.fillStyle="#3C5A60";ctx.font='600 12px "IBM Plex Sans"';
+  ctx.textAlign="center";ctx.textBaseline="bottom";
+  ctx.fillText("φ  (degrees)",M.l+PW/2,M.t+PH+M.b);
+  ctx.save();ctx.translate(13,M.t+PH/2);ctx.rotate(-Math.PI/2);
+  ctx.textBaseline="top";ctx.fillText("ψ  (degrees)",0,0);ctx.restore();
+
+  // points
+  const chainCol=struct.chainCol;
+  const screen=[];
+  const onlyOut=state.filter==="outliers";
+  const size=2.4;
+  for(const p of struct.pts){
+    if(onlyOut&&p.status!=="outlier") continue;
+    const x=px(p.phi),y=py(p.psi);
+    screen.push({x,y,p});
+    const base = state.color==="chain"?chainCol[p.chain]:COLORS[p.cls];
+    if(p.status==="outlier"){
+      ctx.beginPath();ctx.arc(x,y,size+0.4,0,7);ctx.fillStyle=state.color==="chain"?base:"#DC2626";ctx.fill();
+      ctx.lineWidth=1.1;ctx.strokeStyle="#DC2626";ctx.beginPath();ctx.arc(x,y,size+2.2,0,7);ctx.stroke();
+    } else {
+      ctx.beginPath();ctx.arc(x,y,size,0,7);ctx.fillStyle=base;ctx.globalAlpha=.9;ctx.fill();ctx.globalAlpha=1;
+    }
+  }
+  // highlighted residue
+  if(highlight){
+    const x=px(highlight.phi),y=py(highlight.psi);
+    ctx.beginPath();ctx.arc(x,y,6.5,0,7);ctx.lineWidth=2;ctx.strokeStyle="#0E2A2F";ctx.stroke();
+    ctx.beginPath();ctx.arc(x,y,2.4,0,7);ctx.fillStyle="#0E2A2F";ctx.fill();
+  }
+  struct._screen=screen;
+}
+
+/* ---------- app state + UI ---------- */
+const state={ref:"general",color:"class",filter:"all",cols:"2"};
+const structs=[];
+let uid=0;
+
+const grid=document.getElementById("grid");
+const legend=document.getElementById("legend");
+const dropzone=document.getElementById("dropzone");
+const fileInput=document.getElementById("fileInput");
+
+function applyCols(){
+  let n=state.cols;
+  if(n==="auto"){
+    grid.style.gridTemplateColumns="repeat(auto-fill,minmax(330px,1fr))";
+  } else {
+    grid.style.gridTemplateColumns="repeat("+n+",minmax(0,1fr))";
+  }
+}
+function fmt(v){return (v>=0?"+":"")+v.toFixed(1);}
+
+function buildCard(struct){
+  const card=document.createElement("div");card.className="card";card.dataset.id=struct.id;
+
+  const head=document.createElement("div");head.className="card-head";
+  if(struct.error||struct.pts){
+    const chains=struct.pts?[...new Set(struct.pts.map(p=>p.chain))]:[];
+    head.innerHTML=`<span class="name" title="${struct.name}">${struct.name}</span>`+
+      (struct.pts?`<span class="meta">${struct.pts.length} res · ${chains.length} chain${chains.length!==1?"s":""}</span>`:"")+
+      `<span class="spacer"></span>`;
+  }
+  const dl=document.createElement("button");dl.className="icon-btn";dl.title="Download PNG";
+  dl.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const rm=document.createElement("button");rm.className="icon-btn danger";rm.title="Remove";
+  rm.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  head.appendChild(dl);head.appendChild(rm);
+  card.appendChild(head);
+
+  rm.onclick=()=>{const i=structs.findIndex(s=>s.id===struct.id);if(i>=0)structs.splice(i,1);render();};
+
+  if(struct.error){
+    const e=document.createElement("div");e.className="card-error";e.textContent=struct.error;card.appendChild(e);
+    dl.style.display="none";return card;
+  }
+  if(struct.pts.length===0){
+    const e=document.createElement("div");e.className="card-empty";
+    e.textContent="No residues with both φ and ψ found (no protein backbone, or only single residues).";
+    card.appendChild(e);dl.style.display="none";return card;
+  }
+
+  const wrap=document.createElement("div");wrap.className="canvas-wrap";
+  const canvas=document.createElement("canvas");canvas.className="plot";
+  const tip=document.createElement("div");tip.className="tooltip";
+  wrap.appendChild(canvas);wrap.appendChild(tip);card.appendChild(wrap);
+
+  // stats
+  const total=struct.pts.length;
+  const fav=struct.pts.filter(p=>p.status==="favored").length;
+  const allow=struct.pts.filter(p=>p.status==="allowed").length;
+  const out=struct.pts.filter(p=>p.status==="outlier").length;
+  const pct=v=>(v/total*100).toFixed(1);
+  const stats=document.createElement("div");stats.className="stats";
+  stats.innerHTML=
+    `<div class="stat fav"><span class="v">${pct(fav)}%</span><span class="l">Favoured</span></div>`+
+    `<div class="stat"><span class="v">${pct(allow)}%</span><span class="l">Allowed</span></div>`+
+    `<div class="stat out"><span class="v">${out}</span><span class="l">Outliers</span></div>`+
+    `<div class="stat"><span class="v">${total}</span><span class="l">Residues</span></div>`;
+  card.appendChild(stats);
+
+  // outliers list
+  let highlight=null;
+  const redraw=()=>drawPlot(canvas,struct,state,highlight);
+  if(out>0){
+    const det=document.createElement("details");det.className="outliers";
+    const sum=document.createElement("summary");
+    sum.innerHTML=`<svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ${out} outlier${out!==1?"s":""}`;
+    det.appendChild(sum);
+    const list=document.createElement("div");list.className="ol-list";
+    for(const p of struct.pts.filter(p=>p.status==="outlier")){
+      const row=document.createElement("div");row.className="ol-row";
+      row.innerHTML=`<span class="who">${p.chain}&middot;${p.resName} ${p.seq}${p.icode}</span>`+
+        `<span class="ang">φ ${fmt(p.phi)}</span><span class="ang">ψ ${fmt(p.psi)}</span>`;
+      row.onclick=()=>{highlight=(highlight===p)?null:p;redraw();};
+      list.appendChild(row);
+    }
+    det.appendChild(list);card.appendChild(det);
+  }
+
+  // hover
+  canvas.addEventListener("pointermove",ev=>{
+    const rect=canvas.getBoundingClientRect();
+    const sx=LOGW/rect.width, sy=LOGH/rect.height;
+    const mx=(ev.clientX-rect.left)*sx, my=(ev.clientY-rect.top)*sy;
+    let best=null,bd=64;
+    for(const s of (struct._screen||[])){
+      const d=(s.x-mx)**2+(s.y-my)**2;
+      if(d<bd){bd=d;best=s;}
+    }
+    if(best){
+      const p=best.p;
+      tip.innerHTML=`<b>${p.chain}&middot;${p.resName} ${p.seq}${p.icode}</b><br>`+
+        `<span class="k">φ</span> ${fmt(p.phi)}&deg; &nbsp; <span class="k">ψ</span> ${fmt(p.psi)}&deg;<br>`+
+        `<span class="k">${p.cls}</span> · ${p.status}`;
+      let tx=best.x/sx+12, ty=best.y/sy-10;
+      if(tx>rect.width-150) tx=best.x/sx-12-tip.offsetWidth;
+      tip.style.left=tx+"px";tip.style.top=ty+"px";tip.classList.add("show");
+    } else tip.classList.remove("show");
+  });
+  canvas.addEventListener("pointerleave",()=>tip.classList.remove("show"));
+
+  dl.onclick=()=>{
+    canvas.toBlob(b=>{
+      const a=document.createElement("a");a.href=URL.createObjectURL(b);
+      a.download=struct.name.replace(/\.[^.]+$/,"")+"_ramachandran.png";a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    });
+  };
+
+  struct._redraw=redraw;
+  requestAnimationFrame(redraw);
+  return card;
+}
+
+function render(){
+  grid.innerHTML="";
+  applyCols();
+  legend.hidden=structs.length===0;
+  dropzone.style.display=structs.length===0?"block":"block";
+  for(const s of structs) grid.appendChild(buildCard(s));
+}
+function redrawAll(){
+  for(const s of structs) if(s._redraw) s._redraw();
+}
+
+/* ---------- file handling ---------- */
+function detectFormat(name,text){
+  const n=name.toLowerCase();
+  if(n.endsWith(".cif")||n.endsWith(".mmcif")) return "cif";
+  if(n.endsWith(".pdb")||n.endsWith(".ent")) return "pdb";
+  if(/^data_|_atom_site\./m.test(text)) return "cif";
+  return "pdb";
+}
+function ingest(name,text){
+  const s={id:++uid,name};
+  try{
+    const fmt=detectFormat(name,text);
+    const chains=fmt==="cif"?parseCIF(text):parsePDB(text);
+    s.pts=computeAngles(chains);
+    s.chainCol=chainColors(s.pts);
+  }catch(err){
+    s.error="Could not parse this file — "+(err.message||"unexpected format")+".";
+  }
+  structs.push(s);
+}
+function loadFiles(fileList){
+  const files=[...fileList];if(!files.length) return;
+  let pending=files.length;
+  files.forEach(f=>{
+    const reader=new FileReader();
+    reader.onload=()=>{ingest(f.name,reader.result);if(--pending===0) render();};
+    reader.onerror=()=>{structs.push({id:++uid,name:f.name,error:"Could not read this file."});if(--pending===0) render();};
+    reader.readAsText(f);
+  });
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("addBtn").onclick=()=>fileInput.click();
+dropzone.onclick=()=>fileInput.click();
+fileInput.onchange=()=>{loadFiles(fileInput.files);fileInput.value="";};
+["dragenter","dragover"].forEach(e=>dropzone.addEventListener(e,ev=>{ev.preventDefault();dropzone.classList.add("drag");}));
+["dragleave","drop"].forEach(e=>dropzone.addEventListener(e,ev=>{ev.preventDefault();if(e!=="dragleave"||ev.target===dropzone)dropzone.classList.remove("drag");}));
+dropzone.addEventListener("drop",ev=>{ev.preventDefault();dropzone.classList.remove("drag");if(ev.dataTransfer.files.length)loadFiles(ev.dataTransfer.files);});
+window.addEventListener("dragover",e=>e.preventDefault());
+window.addEventListener("drop",e=>{if(e.target!==dropzone&&!dropzone.contains(e.target)){e.preventDefault();if(e.dataTransfer.files.length)loadFiles(e.dataTransfer.files);}});
+
+document.getElementById("clearBtn").onclick=()=>{structs.length=0;render();};
+document.getElementById("colsSel").onchange=e=>{state.cols=e.target.value;applyCols();};
+document.getElementById("refSel").onchange=e=>{state.ref=e.target.value;redrawAll();};
+function seg(id,key,after){
+  const el=document.getElementById(id);
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    el.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");state[key]=b.dataset.v;after&&after();
+  });
+}
+seg("colorSeg","color",redrawAll);
+seg("filterSeg","filter",redrawAll);
+
+applyCols();
+</script>
+</body>
+</html>
