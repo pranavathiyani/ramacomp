@@ -389,7 +389,7 @@ const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
 const len=a=>Math.hypot(a[0],a[1],a[2]);
 function dihedral(p0,p1,p2,p3){
-  let b0=sub(p0,p1).map(v=>-v), b1=sub(p2,p1), b2=sub(p3,p2);
+  let b0=sub(p0,p1), b1=sub(p2,p1), b2=sub(p3,p2);
   const n=len(b1); if(n===0) return null; b1=b1.map(v=>v/n);
   const v=sub(b0,b1.map(x=>x*dot(b0,b1)));
   const w=sub(b2,b1.map(x=>x*dot(b2,b1)));
