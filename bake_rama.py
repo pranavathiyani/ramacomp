@@ -3,7 +3,8 @@
 bake_rama.py - Bake the MolProbity / Top8000 Ramachandran reference
 distributions into rama-data.js for RamaComp.
 
-Data source : https://github.com/rlabduke/rotarama_data  (files at repo root)
+Data source : github.com/rlabduke/reference_data
+              Top8000/Top8000_ramachandran_pct_contour_grids/  (licensed CC-BY-4.0)
 Reference    : Williams et al. (2018) "MolProbity: More and better reference
                data for improved all-atom structure validation."
                Protein Science 27:293-315.  (Top8000 dataset, Richardson Lab, Duke.)
@@ -17,14 +18,13 @@ Notes
 * Six MolProbity categories: general, glycine, Ile/Val, pre-Pro, trans-Pro, cis-Pro.
 * Contour cutoffs follow the MolProbity convention: favoured = 98% contour,
   allowed = 99.95% contour, computed as cumulative population of the reference grid.
-* Confirm the licence/terms of the chem_data repo before redistributing the baked
-  data, and cite the reference above. The Richardson Lab distributes this data openly
-  for reuse, but the citation is required.
+* The Top8000 contour grids are licensed CC-BY-4.0 (confirmed with the Richardson
+  Lab, Dec 2025). Keep the attribution and the Williams et al. 2018 citation.
 """
 
 import urllib.request, base64, struct, sys, json
 
-BASE = "https://raw.githubusercontent.com/rlabduke/rotarama_data/master/"
+BASE = "https://raw.githubusercontent.com/rlabduke/reference_data/master/Top8000/Top8000_ramachandran_pct_contour_grids/"
 FILES = {
     "general":  "rama8000-general-noGPIVpreP.data",
     "glycine":  "rama8000-gly-sym.data",
@@ -109,7 +109,7 @@ def main():
             text = raw.decode("utf-8", "replace")
         except Exception as e:
             sys.stderr.write("  ERROR: %s\n  tried: %s\n"
-                             "  If the path moved, check github.com/rlabduke/rotarama_data.\n" % (e, url))
+                             "  If the path moved, check github.com/rlabduke/reference_data.\n" % (e, url))
             sys.exit(1)
         n, grid = parse(text)
         mx, qbytes, recon = quantize(grid)         # cutoffs on the *reconstructed* grid

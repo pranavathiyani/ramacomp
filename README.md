@@ -61,9 +61,9 @@ The validation-grade contours come from the **Top8000** Ramachandran reference d
 python3 bake_rama.py     # needs internet; writes rama-data.js
 ```
 
-`bake_rama.py` fetches the six grids (`rama8000-general-noGPIVpreP`, `rama8000-gly-sym`, `rama8000-ileval-nopreP`, `rama8000-prepro-noGP`, `rama8000-transpro`, `rama8000-cispro`) from [`github.com/rlabduke/rotarama_data`](https://github.com/rlabduke/rotarama_data), computes the 98% / 99.95% population contours, quantises each grid to a `uint16` base64 blob, and writes `window.RAMA_DATA`. Place `rama-data.js` next to `index.html` and commit both; `index.html` loads it with a `<script>` tag and upgrades automatically (and degrades gracefully to the analytical fallback if it's missing).
+`bake_rama.py` fetches the six grids (`rama8000-general-noGPIVpreP`, `rama8000-gly-sym`, `rama8000-ileval-nopreP`, `rama8000-prepro-noGP`, `rama8000-transpro`, `rama8000-cispro`) from [`rlabduke/reference_data`](https://github.com/rlabduke/reference_data/tree/master/Top8000/Top8000_ramachandran_pct_contour_grids), computes the 98% / 99.95% population contours, quantises each grid to a `uint16` base64 blob, and writes `window.RAMA_DATA`. Place `rama-data.js` next to `index.html` and commit both; `index.html` loads it with a `<script>` tag and upgrades automatically (and degrades gracefully to the analytical fallback if it's missing).
 
-Reference: Williams et al. (2018), *MolProbity: More and better reference data for improved all-atom structure validation*, **Protein Science** 27:293–315. Confirm the `chem_data` repository's terms before redistributing the baked data, and keep the citation.
+The Top8000 contour grids are licensed **CC-BY-4.0** (© Richardson Lab, Duke), confirmed with the lab. Reference: Williams et al. (2018), *MolProbity: More and better reference data for improved all-atom structure validation*, **Protein Science** 27:293–315.
 
 ### Known simplifications
 
