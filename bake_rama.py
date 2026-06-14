@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 bake_rama.py - Bake the MolProbity / Top8000 Ramachandran reference
-distributions into rama-data.js for RamaComp.
+distributions into rama-top8000.js for RamaComp.
 
 Data source : github.com/rlabduke/reference_data
               Top8000/Top8000_ramachandran_pct_contour_grids/  (licensed CC-BY-4.0)
@@ -11,7 +11,7 @@ Reference    : Williams et al. (2018) "MolProbity: More and better reference
 
 Usage (needs internet; run it once, e.g. in WSL):
     python3 bake_rama.py
-Then put the generated rama-data.js next to index.html and commit both.
+Then put the generated rama-top8000.js next to index.html and commit both.
 
 Notes
 -----
@@ -129,10 +129,10 @@ def main():
         "allowFrac": ALLOW_FRAC,
         "classes": classes,
     }
-    js = "window.RAMA_DATA=" + json.dumps(payload, separators=(",", ":")) + ";\n"
-    with open("rama-data.js", "w") as fh:
+    js = "window.RAMA_TOP8000=" + json.dumps(payload, separators=(",", ":")) + ";\n"
+    with open("rama-top8000.js", "w") as fh:
         fh.write(js)
-    sys.stderr.write("wrote rama-data.js (%.0f KB)\n" % (len(js) / 1024.0))
+    sys.stderr.write("wrote rama-top8000.js (%.0f KB)\n" % (len(js) / 1024.0))
 
 
 if __name__ == "__main__":

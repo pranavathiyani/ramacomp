@@ -51,19 +51,29 @@ Residues are sorted into the six MolProbity categories — **cis-Pro, trans-Pro,
 
 ### About the contours and percentages
 
-When the Top8000 reference data file (`rama-data.js`) is present, the contours and the favoured/allowed/outlier calls are the actual MolProbity reference distributions (Top8000, Richardson Lab, Duke), with favoured = the 98% contour and allowed = the 99.95% contour of the reference population — the same convention MolProbity and Phenix use. If that file isn't loaded, RamaComp falls back to a built-in analytical approximation of the basins (four categories, indicative percentages only). Either way, for formal deposition or validation use MolProbity or Phenix directly.
+RamaComp scores each residue against a reference distribution, choosing favoured / allowed / outlier by the 98% and 99.95% contours of the reference population — the same convention MolProbity and Phenix use. Two reference datasets can be loaded, selectable from the **Reference data** dropdown:
+
+- **Top8000 (MolProbity)** — the grids MolProbity and Phenix ship, so RamaComp agrees with MolProbity when this is selected. This is the default.
+- **Top2018** — the larger, more recent Richardson Lab dataset, with contours built from ~3M per-residue φ/ψ measurements.
+
+If neither data file is loaded, RamaComp falls back to a built-in analytical approximation of the basins (four categories, indicative percentages only). For formal deposition or validation, use MolProbity or Phenix directly.
 
 ## Reference data
 
-The validation-grade contours come from the **Top8000** Ramachandran reference distributions (Richardson Lab, Duke; the same data MolProbity and Phenix use). They are not committed in raw form — they are downloaded and baked into a compact `rama-data.js` by a one-off script:
+Both datasets are built by one-off scripts rather than committed raw, so provenance is reproducible. Each writes a small JS file loaded by `index.html`; whichever files are present appear in the dropdown, and the tool degrades to the analytical fallback if none are.
 
 ```bash
-python3 bake_rama.py     # needs internet; writes rama-data.js
+python3 bake_rama.py        # writes rama-top8000.js   (needs internet)
+python3 bake_top2018.py     # writes rama-top2018.js   (needs internet + numpy; large download)
 ```
 
-`bake_rama.py` fetches the six grids (`rama8000-general-noGPIVpreP`, `rama8000-gly-sym`, `rama8000-ileval-nopreP`, `rama8000-prepro-noGP`, `rama8000-transpro`, `rama8000-cispro`) from [`rlabduke/reference_data`](https://github.com/rlabduke/reference_data/tree/master/Top8000/Top8000_ramachandran_pct_contour_grids), computes the 98% / 99.95% population contours, quantises each grid to a `uint16` base64 blob, and writes `window.RAMA_DATA`. Place `rama-data.js` next to `index.html` and commit both; `index.html` loads it with a `<script>` tag and upgrades automatically (and degrades gracefully to the analytical fallback if it's missing).
+`bake_rama.py` fetches the six Top8000 grids (`rama8000-general-noGPIVpreP`, `-gly-sym`, `-ileval-nopreP`, `-prepro-noGP`, `-transpro`, `-cispro`) from [`rlabduke/reference_data`](https://github.com/rlabduke/reference_data/tree/master/Top8000/Top8000_ramachandran_pct_contour_grids), computes the contours, quantises each grid to a `uint16` base64 blob, and writes `window.RAMA_TOP8000`.
 
-The Top8000 contour grids are licensed **CC-BY-4.0** (© Richardson Lab, Duke), confirmed with the lab. Reference: Williams et al. (2018), *MolProbity: More and better reference data for improved all-atom structure validation*, **Protein Science** 27:293–315.
+`bake_top2018.py` streams the pydangle [Top2018 MC per-residue dataset](https://doi.org/10.5281/zenodo.19040026) (Prisant 2026; φ/ψ plus the six-class `rama_category` label per residue), bins φ/ψ per category, smooths on the torus, derives the same contours, and writes `window.RAMA_TOP2018`. The smoothing bandwidth (`SIGMA_DEG`, default 3°) is the one tunable; for contours matching the Richardson Lab's published methodology exactly, request their KDE parameters.
+
+Place the generated `rama-top8000.js` / `rama-top2018.js` next to `index.html` and commit them (the older `rama-data.js` is superseded by `rama-top8000.js`).
+
+Both Top8000 and Top2018 are licensed **CC-BY-4.0** (© Richardson Lab, Duke), confirmed with the lab. References: Williams et al. (2018), *Protein Science* 27:293–315 (MolProbity/Top8000); Williams et al. (2021), *Protein Science* 30:170–184 (Top2018); Read et al. (2011), *Structure* 19:1395–1412 (Ramachandran categories).
 
 ### Known simplifications
 
@@ -76,7 +86,7 @@ The Top8000 contour grids are licensed **CC-BY-4.0** (© Richardson Lab, Duke), 
 The canonical instance is already live at [pranavathiyani.github.io/ramacomp](https://pranavathiyani.github.io/ramacomp/). To host your own (e.g. a fork):
 
 1. Create a public repository named `ramacomp`.
-2. Add `index.html` to the repository root, along with `README.md` and (for validation-grade contours) `rama-data.js` generated by `bake_rama.py`.
+2. Add `index.html` to the repository root, along with `README.md` and (for validation-grade contours) `rama-top8000.js` and/or `rama-top2018.js` generated by the bake scripts.
 3. In the repo, go to **Settings → Pages**, set **Source** to *Deploy from a branch*, branch `main`, folder `/ (root)`, and save.
 4. After a minute it goes live at `https://<your-username>.github.io/ramacomp/`.
 
@@ -92,7 +102,7 @@ Tested against current Chromium, Firefox, and WebKit. Uses Canvas and inline SVG
 
 ## Data sources & credits
 
-Structures are fetched from the [RCSB PDB](https://www.rcsb.org) and the [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) (Jumper et al. 2021, *Nature*; Varadi et al. 2024, *NAR*; AlphaFold DB content is CC-BY-4.0). Ramachandran reference distributions are the Top8000 dataset from the Richardson Lab, Duke (Williams et al. 2018, *Protein Science* 27:293–315). Co-developed by Pranavathiyani Gnanasekar & Claude.
+Structures are fetched from the [RCSB PDB](https://www.rcsb.org) and the [AlphaFold Protein Structure Database](https://alphafold.ebi.ac.uk) (Jumper et al. 2021, *Nature*; Varadi et al. 2024, *NAR*; AlphaFold DB content is CC-BY-4.0). Ramachandran reference distributions are the Top8000 and Top2018 datasets from the Richardson Lab, Duke, used under CC-BY-4.0 (Williams et al. 2018, *Protein Science* 27:293–315; Williams et al. 2021, *Protein Science* 30:170–184; Top2018 per-residue data via pydangle, Prisant 2026). Co-developed by Pranavathiyani Gnanasekar & Claude.
 
 ## License
 

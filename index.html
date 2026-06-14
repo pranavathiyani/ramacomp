@@ -9,7 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
-<script src="rama-data.js" onerror="window.__noRama=1"></script>
+<script src="rama-top8000.js" onerror="0"></script>
+<script src="rama-top2018.js" onerror="0"></script>
 <style>
   :root{
     --surface:#FBFCFD;
@@ -275,6 +276,10 @@
           <option value="5">5</option>
         </select>
       </div>
+      <div class="field" id="datasetField">
+        <label>Reference data</label>
+        <select id="datasetSel"></select>
+      </div>
       <div class="field">
         <label>Reference contours</label>
         <select id="refSel">
@@ -364,7 +369,7 @@
       </ul>
 
       <h2>About the contours and percentages</h2>
-      <p>When the Top8000 reference data file (<code>rama-data.js</code>) is present, the contours and the favoured/allowed/outlier calls are the actual MolProbity reference distributions (Top8000, Richardson Lab), with favoured = the 98% contour and allowed = the 99.95% contour of the reference population — the same convention MolProbity and Phenix use. If that file isn't loaded, RamaComp falls back to a built-in analytical approximation of the basins (four categories, indicative percentages only). Either way, for formal deposition or validation use MolProbity or Phenix directly.</p>
+      <p>Residues are scored against a reference distribution, with favoured = the 98% contour and allowed = the 99.95% contour of the reference population — the convention MolProbity and Phenix use. Use the <b>Reference data</b> dropdown to choose between <b>Top8000 (MolProbity)</b> — the grids MolProbity and Phenix ship, so results match MolProbity — and <b>Top2018</b>, the larger, more recent Richardson Lab dataset. If no reference data file is loaded, RamaComp falls back to a built-in analytical approximation of the basins (four categories, indicative percentages only). For formal deposition or validation use MolProbity or Phenix directly.</p>
 
       <h2>Known simplifications</h2>
       <ul>
@@ -374,7 +379,7 @@
       </ul>
 
       <h2>Data sources &amp; credits</h2>
-      <p class="muted">Structures fetched from the <a href="https://www.rcsb.org" target="_blank" rel="noopener">RCSB PDB</a> and the <a href="https://alphafold.ebi.ac.uk" target="_blank" rel="noopener">AlphaFold Protein Structure Database</a> (Jumper et al. 2021, <i>Nature</i>; Varadi et al. 2024, <i>NAR</i>; AlphaFold DB content is CC-BY-4.0). Ramachandran reference distributions are the Top8000 dataset from the Richardson Lab, Duke (Williams et al. 2018, <i>Protein Science</i> 27:293–315). RamaComp is co-developed by Pranavathiyani Gnanasekar &amp; Claude, and released under the MIT License. Source: <a href="https://github.com/pranavathiyani/ramacomp" target="_blank" rel="noopener">github.com/pranavathiyani/ramacomp</a>.</p>
+      <p class="muted">Structures fetched from the <a href="https://www.rcsb.org" target="_blank" rel="noopener">RCSB PDB</a> and the <a href="https://alphafold.ebi.ac.uk" target="_blank" rel="noopener">AlphaFold Protein Structure Database</a> (Jumper et al. 2021, <i>Nature</i>; Varadi et al. 2024, <i>NAR</i>; AlphaFold DB content is CC-BY-4.0). Ramachandran reference distributions are the Top8000 and Top2018 datasets from the Richardson Lab, Duke, used under CC-BY-4.0 (Williams et al. 2018, <i>Protein Science</i> 27:293–315; Williams et al. 2021, <i>Protein Science</i> 30:170–184; Top2018 per-residue data via pydangle, Prisant 2026). RamaComp is co-developed by Pranavathiyani Gnanasekar &amp; Claude, and released under the MIT License. Source: <a href="https://github.com/pranavathiyani/ramacomp" target="_blank" rel="noopener">github.com/pranavathiyani/ramacomp</a>.</p>
     </div>
   </section>
 </main>
@@ -547,18 +552,31 @@ for(const k in BASINS){
   CLASS_MAX[k]=m;
 }
 
-/* ---------- reference distributions: Top8000 grids if baked (rama-data.js), else analytical ---------- */
-const RAMA=(typeof window!=="undefined"&&window.RAMA_DATA&&window.RAMA_DATA.classes)?window.RAMA_DATA:null;
+/* ---------- reference datasets: Top8000 / Top2018 grids if baked, else analytical ---------- */
 function decodeGrid(o){
   if(o._vals) return o;
   const bin=atob(o.b64), len=bin.length>>1, v=new Float64Array(len), s=o.max/65535;
   for(let i=0;i<len;i++) v[i]=(bin.charCodeAt(2*i)|(bin.charCodeAt(2*i+1)<<8))*s;
   o._vals=v;return o;
 }
-if(RAMA) for(const k in RAMA.classes) decodeGrid(RAMA.classes[k]);
+const DATASETS={};
+(function(){
+  const W=(typeof window!=="undefined")?window:{};
+  const cand=[
+    ["top8000","Top8000 (MolProbity)", W.RAMA_TOP8000||W.RAMA_DATA],
+    ["top2018","Top2018", W.RAMA_TOP2018],
+  ];
+  for(const [key,label,obj] of cand){
+    if(obj&&obj.classes){ for(const k in obj.classes) decodeGrid(obj.classes[k]); DATASETS[key]={label,data:obj}; }
+  }
+})();
+const DATASET_KEYS=Object.keys(DATASETS);
+let activeDataset=DATASET_KEYS[0]||null; // Top8000 preferred (listed first) when present
+function RAMAnow(){ return activeDataset?DATASETS[activeDataset].data:null; }
 // map the six analysis categories onto whichever distributions are available
 function densClass(c){
-  if(RAMA) return RAMA.classes[c]?c:"general";
+  const R=RAMAnow();
+  if(R) return R.classes[c]?c:"general";
   if(c==="cispro"||c==="transpro") return "proline";
   if(c==="ileval") return "general";
   if(c==="prepro") return "preproline";
@@ -574,9 +592,9 @@ function gridVal(g,phi,psi){
   return v[y0*n+x0]*(1-tx)*(1-ty)+v[y0*n+x1]*tx*(1-ty)+v[y1*n+x0]*(1-tx)*ty+v[y1*n+x1]*tx*ty;
 }
 function classify(phi,psi,cls){
-  const dc=densClass(cls);
-  if(RAMA){
-    const g=RAMA.classes[dc], d=gridVal(g,phi,psi);
+  const R=RAMAnow(), dc=densClass(cls);
+  if(R){
+    const g=R.classes[dc], d=gridVal(g,phi,psi);
     if(d>=g.fav) return "favored";
     if(d>=g.allow) return "allowed";
     return "outlier";
@@ -621,12 +639,13 @@ function computeAngles(chains){
 const bgCache={};
 function backgroundCanvas(cls){
   if(cls==="none") return null;
-  if(bgCache[cls]) return bgCache[cls];
-  const dc=densClass(cls), N=180;
+  const R=RAMAnow(), dc=densClass(cls), N=180;
+  const key=(activeDataset||"fallback")+"|"+cls;
+  if(bgCache[key]) return bgCache[key];
   const off=document.createElement("canvas");off.width=N;off.height=N;
   const ctx=off.getContext("2d");const img=ctx.createImageData(N,N);
   const favC=[15,124,117,Math.round(.30*255)], alC=[15,124,117,Math.round(.11*255)];
-  const useGrid=!!RAMA, g=useGrid?RAMA.classes[dc]:null;
+  const useGrid=!!R, g=useGrid?R.classes[dc]:null;
   const favCut=useGrid?g.fav:FAV, alCut=useGrid?g.allow:ALLOW;
   const max=useGrid?1:CLASS_MAX[dc], basins=useGrid?null:BASINS[dc];
   for(let r=0;r<N;r++){
@@ -640,7 +659,7 @@ function backgroundCanvas(cls){
     }
   }
   ctx.putImageData(img,0,0);
-  bgCache[cls]=off;return off;
+  bgCache[key]=off;return off;
 }
 
 /* ---------- plot rendering (on-screen canvas) ---------- */
@@ -1089,9 +1108,10 @@ function renderLegend(){
     for(const k of ["general","glycine","ileval","prepro","transpro","cispro"])
       html+=`<span class="item"><span class="dot" style="background:${COLORS[k]}"></span>${CLASS_LABEL[k]}</span>`;
   }
-  const note = RAMA
-    ? "Contours and favoured/allowed use the Top8000 (MolProbity) reference distributions."
-    : "Contours are an analytical approximation of the canonical basins (Top8000 data not loaded) — indicative, not validation-grade.";
+  const R=RAMAnow();
+  const note = R
+    ? `Scoring against the ${DATASETS[activeDataset].label} reference distributions (favoured = 98% contour, allowed = 99.95%).`
+    : "Contours are an analytical approximation of the canonical basins (no reference data loaded) — indicative, not validation-grade.";
   html+=`<span class="item"><span class="dot" style="background:var(--c-outlier);box-shadow:0 0 0 2px rgba(220,38,38,.25)"></span>Outlier</span>`+
     `<span class="item"><span class="swatch" style="background:var(--fav)"></span>Favoured</span>`+
     `<span class="item"><span class="swatch" style="background:var(--allow)"></span>Allowed</span>`+
@@ -1108,6 +1128,12 @@ function render(){
   updateCompareBar();
 }
 function redrawAll(){ renderLegend(); for(const s of structs) if(s._redraw) s._redraw(); }
+function setDataset(key){
+  if(!DATASETS[key]||key===activeDataset) return;
+  activeDataset=key;
+  for(const s of structs) if(s.pts) for(const p of s.pts) p.status=classify(p.phi,p.psi,p.cls);
+  render();
+}
 
 /* ---------- file handling ---------- */
 function detectFormat(name,text){
@@ -1214,6 +1240,13 @@ window.addEventListener("drop",e=>{if(e.target!==dropzone&&!dropzone.contains(e.
 document.getElementById("clearBtn").onclick=()=>{structs.length=0;selected.clear();render();};
 document.getElementById("colsSel").onchange=e=>{state.cols=e.target.value;applyCols();};
 document.getElementById("refSel").onchange=e=>{state.ref=e.target.value;redrawAll();};
+(function initDatasetSel(){
+  const sel=document.getElementById("datasetSel");
+  if(!DATASET_KEYS.length){ sel.innerHTML="<option>Analytical (no data)</option>"; sel.disabled=true; return; }
+  sel.innerHTML=DATASET_KEYS.map(k=>`<option value="${k}">${DATASETS[k].label}</option>`).join("");
+  sel.value=activeDataset;
+  sel.onchange=e=>setDataset(e.target.value);
+})();
 document.getElementById("cbExport").onclick=function(){
   const list=compareList();
   if(!list.length){toast("Add structures first",true);return;}
