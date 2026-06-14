@@ -591,12 +591,17 @@ function gridVal(g,phi,psi){
   const x1=W(x0+1), y1=W(y0+1); x0=W(x0); y0=W(y0);
   return v[y0*n+x0]*(1-tx)*(1-ty)+v[y0*n+x1]*tx*(1-ty)+v[y1*n+x0]*(1-tx)*ty+v[y1*n+x1]*tx*ty;
 }
+// MolProbity fixed cutoffs on the peak-normalised score (value/peak, 0..1).
+// Outlier cutoffs are from cctbx (general & Ile/Val 0.0005; Gly, cis/trans-Pro, pre-Pro 0.002);
+// favoured = 0.02 (general value, applied across categories). Refined against ramalyze in validation.
+const RAMA_FAV={general:0.02,glycine:0.02,ileval:0.02,prepro:0.02,transpro:0.02,cispro:0.02};
+const RAMA_OUT={general:0.0005,ileval:0.0005,glycine:0.002,prepro:0.002,transpro:0.002,cispro:0.002};
 function classify(phi,psi,cls){
   const R=RAMAnow(), dc=densClass(cls);
   if(R){
-    const g=R.classes[dc], d=gridVal(g,phi,psi);
-    if(d>=g.fav) return "favored";
-    if(d>=g.allow) return "allowed";
+    const g=R.classes[dc], norm=gridVal(g,phi,psi)/(g.max||1);
+    if(norm>=(RAMA_FAV[dc]??0.02)) return "favored";
+    if(norm>=(RAMA_OUT[dc]??0.0005)) return "allowed";
     return "outlier";
   }
   const d=rawDensity(phi,psi,BASINS[dc])/CLASS_MAX[dc];
@@ -645,14 +650,14 @@ function backgroundCanvas(cls){
   const off=document.createElement("canvas");off.width=N;off.height=N;
   const ctx=off.getContext("2d");const img=ctx.createImageData(N,N);
   const favC=[15,124,117,Math.round(.30*255)], alC=[15,124,117,Math.round(.11*255)];
-  const useGrid=!!R, g=useGrid?R.classes[dc]:null;
-  const favCut=useGrid?g.fav:FAV, alCut=useGrid?g.allow:ALLOW;
-  const max=useGrid?1:CLASS_MAX[dc], basins=useGrid?null:BASINS[dc];
+  const useGrid=!!R, g=useGrid?R.classes[dc]:null, gmax=useGrid?(g.max||1):1;
+  const favCut=useGrid?(RAMA_FAV[dc]??0.02):FAV, alCut=useGrid?(RAMA_OUT[dc]??0.0005):ALLOW;
+  const basins=useGrid?null:BASINS[dc], fmax=useGrid?1:CLASS_MAX[dc];
   for(let r=0;r<N;r++){
     const psi=180-(r+0.5)/N*360;
     for(let c=0;c<N;c++){
       const phi=-180+(c+0.5)/N*360;
-      const d=useGrid?gridVal(g,phi,psi):rawDensity(phi,psi,basins)/max;
+      const d=useGrid?gridVal(g,phi,psi)/gmax:rawDensity(phi,psi,basins)/fmax;
       const o=(r*N+c)*4;let col=null;
       if(d>=favCut) col=favC; else if(d>=alCut) col=alC;
       if(col){img.data[o]=col[0];img.data[o+1]=col[1];img.data[o+2]=col[2];img.data[o+3]=col[3];}
